@@ -149,3 +149,57 @@ export async function sendTestNotification(
   }
 }
 
+export interface SmtpStatus {
+  configured: boolean
+  user: string | null
+  host: string
+  from: string | null
+  isGmail: boolean
+}
+
+/**
+ * Consulta el estado de configuración del motor de correo SMTP en el backend
+ */
+export async function getSmtpStatus(): Promise<SmtpStatus> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'
+  const res = await fetch(`${backendUrl}/api/v1/reminders/smtp-status`, {
+    headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+  })
+  if (!res.ok) throw new Error('Error al consultar estado SMTP')
+  return res.json()
+}
+
+/**
+ * Valida y guarda credenciales SMTP en caliente en el servidor
+ */
+export async function configureSmtp(payload: {
+  user: string
+  pass: string
+  host?: string
+  port?: number
+  secure?: boolean
+  from?: string
+}): Promise<{ message: string; user: string }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'
+  const res = await fetch(`${backendUrl}/api/v1/reminders/smtp-configure`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token ?? ''}`,
+    },
+    body: JSON.stringify(payload),
+  })
+  const body = await res.json()
+  if (!res.ok) {
+    throw new Error(body.error || 'Error al conectar con el servidor SMTP')
+  }
+  return body
+}
+
+

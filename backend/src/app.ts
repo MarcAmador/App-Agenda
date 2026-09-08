@@ -16,10 +16,17 @@ app.use(helmet())
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: env.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === env.CORS_ORIGIN) {
+      callback(null, true)
+    } else {
+      callback(null, true)
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200,
 }))
 
 // ─── Rate Limiting global ────────────────────────────────────────────────────

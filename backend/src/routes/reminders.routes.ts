@@ -1,11 +1,117 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
+import fs from 'fs'
+import path from 'path'
+import nodemailer from 'nodemailer'
+import { env } from '../config/env'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { supabaseAdmin } from '../config/supabase'
 import { SendTestNotificationSchema } from '../schemas/preferences.schemas'
 import { notificationDispatcher } from '../services/dispatcher/notification.dispatcher'
 
 export const remindersRouter = Router()
+
+/**
+ * GET /api/v1/reminders/smtp-status
+ * Consulta si el backend tiene SMTP configurado para enviar correos reales (público / no bloqueante).
+ */
+remindersRouter.get('/smtp-status', async (_req: Request, res: Response) => {
+  const isConfigured = Boolean(env.SMTP_USER && env.SMTP_PASS)
+  res.json({
+    configured: isConfigured,
+    user: env.SMTP_USER || null,
+    host: env.SMTP_HOST || 'smtp.gmail.com',
+    from: env.SMTP_FROM || null,
+    isGmail: (env.SMTP_HOST || '').includes('gmail') || Boolean(env.SMTP_USER?.includes('@gmail.com')),
+  })
+})
+
+/**
+ * POST /api/v1/reminders/smtp-configure
+ * Valida y guarda las credenciales SMTP en caliente y en el archivo .env
+ */
+remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
+  try {
+    const { user, pass, host, port, secure, from } = req.body
+    if (!user || !pass) {
+      return res.status(400).json({ error: 'Usuario (correo) y contraseña son requeridos' })
+    }
+
+    const cleanPass = (pass as string).replace(/\s+/g, '')
+    const cleanUser = (user as string).trim()
+    const cleanHost = (host as string)?.trim() || 'smtp.gmail.com'
+    const isGmail = cleanHost.includes('gmail') || cleanUser.includes('@gmail.com')
+
+    // Verificar en vivo con nodemailer (forzando IPv4)
+    const testTransporter = nodemailer.createTransport({
+      host: cleanHost,
+      port: Number(port) || 587,
+      secure: secure === true || secure === 'true',
+      family: 4,
+      auth: { user: cleanUser, pass: cleanPass },
+    } as any)
+
+    try {
+      await testTransporter.verify()
+    } catch (verifyErr) {
+      const msg = verifyErr instanceof Error ? verifyErr.message : 'Fallo en la conexión SMTP'
+      let friendlyError = msg
+      if (msg.includes('535') || msg.includes('BadCredentials') || msg.includes('Username and Password not accepted')) {
+        friendlyError = 'Google rechazó las credenciales (Error 535): Si usas Gmail, debes generar una "Contraseña de aplicación" de 16 caracteres en Google (Seguridad > Verificación en 2 pasos > Contraseñas de aplicaciones), NO la contraseña habitual.'
+      } else if (msg.includes('ECONNREFUSED')) {
+        friendlyError = 'No se pudo conectar con el servidor SMTP. Verifica el host y el puerto.'
+      }
+      return res.status(422).json({ error: friendlyError })
+    }
+
+    // Actualizar variables en memoria
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(env as any).SMTP_USER = cleanUser
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(env as any).SMTP_PASS = cleanPass
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(env as any).SMTP_HOST = cleanHost
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (from) (env as any).SMTP_FROM = from
+
+    process.env.SMTP_USER = cleanUser
+    process.env.SMTP_PASS = cleanPass
+    process.env.SMTP_HOST = cleanHost
+    if (from) process.env.SMTP_FROM = from
+
+    // Actualizar o escribir en .env
+    const envPath = path.resolve(__dirname, '../../.env')
+    if (fs.existsSync(envPath)) {
+      let content = fs.readFileSync(envPath, 'utf-8')
+      const updateOrAdd = (key: string, val: string) => {
+        const regex = new RegExp(`^#?\\s*${key}=.*$`, 'm')
+        if (regex.test(content)) {
+          content = content.replace(regex, `${key}=${val}`)
+        } else {
+          content += `\n${key}=${val}`
+        }
+      }
+      updateOrAdd('SMTP_HOST', cleanHost)
+      updateOrAdd('SMTP_PORT', port ? String(port) : '587')
+      updateOrAdd('SMTP_SECURE', secure ? 'true' : 'false')
+      updateOrAdd('SMTP_USER', cleanUser)
+      updateOrAdd('SMTP_PASS', cleanPass)
+      if (from) updateOrAdd('SMTP_FROM', from)
+      fs.writeFileSync(envPath, content, 'utf-8')
+    }
+
+    // Resetear transporte en el despachador
+    notificationDispatcher.resetEmailAdapter()
+
+    res.json({
+      message: '¡Credenciales SMTP verificadas y activas! Ahora los correos se envían de verdad.',
+      user: cleanUser,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error al configurar SMTP'
+    res.status(500).json({ error: message })
+  }
+})
 
 remindersRouter.use(authMiddleware)
 

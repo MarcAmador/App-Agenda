@@ -18,47 +18,57 @@ export function useOnboardingTour() {
           popover: {
             title: '👋 ¡Bienvenido a AgendaPro!',
             description:
-              'Tu plataforma de productividad académica y gestión docente. Aquí tendrás el control completo de tus actividades, fechas límites y entregas.',
+              'Tu plataforma ejecutiva de gestión y productividad docente. Aquí tienes el pulso diario y el resumen visual de todas tus actividades académicas.',
             side: 'bottom',
             align: 'start',
           },
         },
         {
-          element: '#tour-stats',
+          element: '#tour-kpi-metrics',
           popover: {
-            title: '📊 Tarjetas de Estado Rápidas',
+            title: '📊 Métricas & Estado en Vivo',
             description:
-              'Monitorea en tiempo real tus actividades pendientes, en curso, completadas o vencidas. Haz clic en cualquiera de ellas para filtrar la vista instantáneamente.',
+              'Visualiza al instante tus tareas activas, actividades para hoy o vencidas, tareas críticas Q1 y el porcentaje de cumplimiento general.',
             side: 'bottom',
             align: 'center',
           },
         },
         {
-          element: '#tour-view-modes',
+          element: '#tour-priority-summary',
           popover: {
-            title: '🔄 Vistas Interactivas',
+            title: '⚡ Matriz Eisenhower & Próximos Plazos',
             description:
-              'Alterna entre la Vista Tabla (con búsqueda y filtros avanzados), la Vista Calendario (mensual/semanal) y la Matriz de Eisenhower.',
-            side: 'bottom',
+              'Monitorea la distribución estratégica de tus 4 cuadrantes (Hacer Ya, Planificar, Delegar, Eliminar) y las próximas 5 entregas con opción de completado rápido.',
+            side: 'top',
             align: 'center',
           },
         },
         {
-          element: '#btn-nueva-tarea',
+          element: '#tour-quick-modules',
           popover: {
-            title: '⚡ Creación Rápida de Tareas',
+            title: '🧭 Módulos Dedicados del Sistema',
             description:
-              'Crea actividades académicas asignando cuadrante de prioridad, fecha límite, hora de entrega y etiquetas personalizadas.',
-            side: 'left',
+              'El Dashboard es puramente informativo. Para trabajar a profundidad, haz clic en estas tarjetas o en el menú lateral para ir a las páginas completas de Tabla, Calendario, Matriz y Configuración.',
+            side: 'top',
             align: 'center',
+          },
+        },
+        {
+          element: '#tour-btn-new-task',
+          popover: {
+            title: '✨ Creación Rápida de Actividades',
+            description:
+              'Registra una nueva actividad académica con título, fecha límite, hora, cuadrante de prioridad y etiquetas personalizadas sin salir del panel.',
+            side: 'bottom',
+            align: 'end',
           },
         },
         {
           element: '#tour-sidebar-nav',
           popover: {
-            title: '🧭 Navegación del Sistema',
+            title: '📌 Menú Lateral Permanente',
             description:
-              'Accede directamente al Dashboard, Tareas, Calendario, Matriz y al Panel de Configuración desde este menú lateral.',
+              'Accede directamente en cualquier momento a las secciones principales de la aplicación.',
             side: 'right',
             align: 'start',
           },
@@ -66,9 +76,9 @@ export function useOnboardingTour() {
         {
           element: '#tour-topbar-tour',
           popover: {
-            title: '💡 Tour & Ayuda Permanente',
+            title: '💡 Tour & Asistencia',
             description:
-              '¡Listo! Puedes volver a iniciar este tour en cualquier momento haciendo clic en este botón de la barra superior o desde Configuración.',
+              '¡Todo listo para impulsar tu productividad docente! Puedes reiniciar este tour interactivo en cualquier momento desde este botón.',
             side: 'bottom',
             align: 'end',
           },
@@ -89,7 +99,7 @@ export function useOnboardingTour() {
     if (!completed) {
       const timer = setTimeout(() => {
         startTour()
-      }, 1200)
+      }, 1000)
       return () => clearTimeout(timer)
     }
   }, [startTour])

@@ -18,6 +18,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
+  updateDisplayName: (name: string) => Promise<void>
   error: AuthError | null
 }
 
@@ -41,17 +42,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Recupera la sesión activa al montar el provider (ej: después de recarga)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      setUser(session?.user ?? null)
+      let initialUser = session?.user ?? null
+      const localName = localStorage.getItem('agendapro_custom_display_name')
+      if (initialUser && localName) {
+        initialUser = {
+          ...initialUser,
+          user_metadata: {
+            ...initialUser.user_metadata,
+            full_name: localName,
+          },
+        }
+      }
+      setUser(initialUser)
       setIsLoading(false)
     })
 
     // Suscripción al listener de cambios de estado de auth:
-    // SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
-      setUser(session?.user ?? null)
+      let initialUser = session?.user ?? null
+      const localName = localStorage.getItem('agendapro_custom_display_name')
+      if (initialUser && localName) {
+        initialUser = {
+          ...initialUser,
+          user_metadata: {
+            ...initialUser.user_metadata,
+            full_name: localName,
+          },
+        }
+      }
+      setUser(initialUser)
       setIsLoading(false)
     })
 
@@ -64,10 +86,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Redirige al usuario a la página principal después del callback de OAuth
         redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
-          // Solicita acceso offline para mantener la sesión activa
           access_type: 'offline',
           prompt: 'consent',
         },
@@ -83,6 +103,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (error) setError(error)
   }, [])
 
+  /** Actualiza el nombre del usuario tanto localmente como en Supabase Auth */
+  const updateDisplayName = useCallback(async (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+
+    // 1. Persistencia local inmediata
+    localStorage.setItem('agendapro_custom_display_name', trimmed)
+
+    // 2. Actualizar estado en memoria reactivamente
+    setUser((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        user_metadata: {
+          ...prev.user_metadata,
+          full_name: trimmed,
+        },
+      }
+    })
+
+    // 3. Sincronizar en Supabase si hay conexión activa
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { full_name: trimmed },
+      })
+      if (data?.user) {
+        setUser(data.user)
+      }
+      if (error) {
+        console.warn('[AuthContext] updateUser advertencia (usando copia local):', error.message)
+      }
+    } catch (err) {
+      console.warn('[AuthContext] error de red al sincronizar con Supabase:', err)
+    }
+  }, [])
+
   const value: AuthContextValue = {
     user,
     session,
@@ -90,6 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: !!user,
     signInWithGoogle,
     signOut,
+    updateDisplayName,
     error,
   }
 

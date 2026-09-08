@@ -18,7 +18,7 @@ export function PriorityBadge({ priority, compact = false }: PriorityBadgeProps)
   const meta = PRIORITY_META[priority]
   return (
     <span
-      className={`badge badge-sm font-medium ${QUADRANT_COLORS[meta.quadrant]}`}
+      className={`badge badge-sm font-semibold tracking-wide h-6 px-3 py-1 rounded-lg ${QUADRANT_COLORS[meta.quadrant]}`}
       title={meta.description}
     >
       {compact ? `Q${meta.quadrant}` : meta.label}

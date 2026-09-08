@@ -252,21 +252,14 @@ export function TaskDataTable({
           </span>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <span className="pi pi-search text-base-content/40 text-sm" />
+      <div className="relative">
+        <span className="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-base-content/40 text-xs pointer-events-none" />
         <input
           type="text"
           value={globalFilter}
           onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder="Buscar en todas las columnas..."
-          className="input input-sm input-bordered rounded-lg w-56 text-sm"
-        />
-        <Dropdown
-          value={rows}
-          onChange={(e) => setRows(e.value as number)}
-          options={[10, 15, 25, 50]}
-          className="p-inputtext-sm"
-          style={{ width: '5rem' }}
+          placeholder="Buscar actividades..."
+          className="input input-sm input-bordered rounded-xl pl-9 pr-4 w-64 text-xs font-medium focus:outline-primary transition-all shadow-2xs"
         />
       </div>
     </div>

@@ -29,7 +29,7 @@ export class EmailAdapter implements ChannelAdapter {
       const html = this.generateHtml(payload)
       const text = this.generatePlainText(payload)
 
-      const fromAddress = env.SMTP_FROM || `"AgendaPro Académico" <notificaciones@agendapro.edu>`
+      const fromAddress = env.SMTP_FROM || `"AgendaPro Académico" <${env.SMTP_USER || 'notificaciones@agendapro.edu'}>`
 
       const info = await transporter.sendMail({
         from: fromAddress,
@@ -48,7 +48,7 @@ export class EmailAdapter implements ChannelAdapter {
           console.log(`[EmailAdapter] 🌐 Correo enviado vía Ethereal. Ver en: ${previewUrl}`)
         }
       } else {
-        console.log(`[EmailAdapter] ✉️ Correo enviado exitosamente vía SMTP a ${payload.userEmail}`)
+        console.log(`[EmailAdapter] ✉️ Correo enviado exitosamente vía SMTP real a ${payload.userEmail}`)
       }
 
       return {
@@ -59,7 +59,15 @@ export class EmailAdapter implements ChannelAdapter {
         sentAt,
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Error desconocido al enviar email'
+      let errorMsg = err instanceof Error ? err.message : 'Error desconocido al enviar email'
+      
+      // Diagnóstico detallado para Google y SMTP
+      if (errorMsg.includes('535') || errorMsg.includes('BadCredentials') || errorMsg.includes('Username and Password not accepted')) {
+        errorMsg = 'Google rechazó la contraseña: Si usas Gmail, debes generar una "Contraseña de aplicación" de 16 caracteres en Google (Seguridad > Verificación en 2 pasos > Contraseñas de aplicaciones), NO la contraseña habitual.'
+      } else if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('ETIMEDOUT')) {
+        errorMsg = 'No se pudo conectar con el servidor SMTP. Verifica el host y el puerto.'
+      }
+
       console.error('[EmailAdapter] Error al despachar correo:', errorMsg)
       return {
         channel: this.channel,
@@ -71,27 +79,39 @@ export class EmailAdapter implements ChannelAdapter {
   }
 
   /**
+   * Resetea el transporter en caché al actualizar variables de entorno en tiempo de ejecución
+   */
+  public resetTransporter(): void {
+    this.cachedTransporter = null
+  }
+
+  /**
    * Inicializa el transporte SMTP real (Gmail, Outlook, etc.) o Ethereal para tests
    */
   private async getTransporter(): Promise<{ transporter: Transporter; isEthereal: boolean }> {
-    // Si hay credenciales SMTP configuradas en .env
+    // Si hay credenciales SMTP configuradas en .env o runtime
     if (env.SMTP_USER && env.SMTP_PASS) {
       if (!this.cachedTransporter) {
+        const cleanPass = env.SMTP_PASS.replace(/\s+/g, '')
+        const host = env.SMTP_HOST || 'smtp.gmail.com'
+        const port = Number(env.SMTP_PORT) || 587
+        const secure = env.SMTP_SECURE === 'true'
+
         this.cachedTransporter = nodemailer.createTransport({
-          host: env.SMTP_HOST || 'smtp.gmail.com',
-          port: Number(env.SMTP_PORT) || 587,
-          secure: env.SMTP_SECURE === 'true',
+          host,
+          port,
+          secure,
+          family: 4,
           auth: {
             user: env.SMTP_USER,
-            pass: env.SMTP_PASS,
+            pass: cleanPass,
           },
-        })
+        } as any)
       }
       return { transporter: this.cachedTransporter, isEthereal: false }
     }
 
-    // Fallback de demostración / test interactivo real: Cuenta Ethereal temporal
-    // Crea una cuenta real en Ethereal para permitir previsualizar el correo exacto en el navegador
+    // Fallback de demostración / test interactivo: Cuenta Ethereal temporal
     const testAccount = await nodemailer.createTestAccount()
     const etherealTransporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
@@ -102,7 +122,6 @@ export class EmailAdapter implements ChannelAdapter {
         pass: testAccount.pass,
       },
     })
-
 
     return { transporter: etherealTransporter, isEthereal: true }
   }

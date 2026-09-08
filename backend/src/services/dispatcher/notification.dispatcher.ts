@@ -52,7 +52,7 @@ export class NotificationDispatcher {
       dueTime: '18:00:00',
       priority: 'Urgente e Importante',
       userName: (userData.user.user_metadata?.full_name as string) ?? userData.user.email?.split('@')[0] ?? 'Coordinador',
-      userEmail: userData.user.email,
+      userEmail: (channel === 'email' && destination?.trim()) ? destination.trim() : (userData.user.email ?? 'ronaldo22amador@gmail.com'),
       phoneNumber: destination ?? prefs?.phone_number ?? null,
       telegramChatId: destination ?? prefs?.telegram_chat_id ?? null,
       isTest: true,
@@ -62,6 +62,16 @@ export class NotificationDispatcher {
 
     // Opcional: registrar en reminder_logs si existe una tarea o simular log
     return result
+  }
+
+  /**
+   * Resetea el adaptador de correo cuando se actualizan credenciales SMTP
+   */
+  public resetEmailAdapter(): void {
+    const emailAdapter = this.adapters.get('email')
+    if (emailAdapter && emailAdapter instanceof EmailAdapter) {
+      emailAdapter.resetTransporter()
+    }
   }
 
   /**

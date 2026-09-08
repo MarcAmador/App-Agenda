@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, LayoutList, Calendar, Grid2x2, X } from 'lucide-react'
 import type { Task, CreateTaskInput, TaskPriority } from '@/types/database.types'
 import { TaskFilters } from '@/services/tasks.service'
@@ -111,6 +112,14 @@ export function TasksView({
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [initialModalValues, setInitialModalValues] = useState<Partial<CreateTaskInput> | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode)
+  const navigate = useNavigate()
+
+  const handleViewChange = (mode: ViewMode) => {
+    setViewMode(mode)
+    if (mode === 'tabla') navigate('/tareas')
+    else if (mode === 'calendario') navigate('/calendario')
+    else if (mode === 'matriz') navigate('/matriz')
+  }
 
   // Combinar filtros rápidos con filtros avanzados
   const combinedFilters: TaskFilters = {
@@ -208,7 +217,7 @@ export function TasksView({
               <button
                 key={mode}
                 type="button"
-                onClick={() => setViewMode(mode)}
+                onClick={() => handleViewChange(mode)}
                 title={title}
                 className={[
                   'btn btn-xs rounded-lg px-2.5 h-8 gap-1.5 transition-all',

@@ -5,6 +5,8 @@ import {
   updateUserPreferences,
   getReminderLogs,
   sendTestNotification,
+  getSmtpStatus,
+  configureSmtp,
 } from '@/services/preferences.service'
 import type { UpdateUserPreferencesInput, NotificationChannel } from '@/types/database.types'
 
@@ -12,6 +14,7 @@ export const preferenceKeys = {
   all: ['preferences'] as const,
   current: () => [...preferenceKeys.all, 'current'] as const,
   logs: () => [...preferenceKeys.all, 'logs'] as const,
+  smtp: () => [...preferenceKeys.all, 'smtp'] as const,
 }
 
 /** Hook para obtener las preferencias del usuario */
@@ -67,3 +70,28 @@ export function useSendTestNotification() {
     },
   })
 }
+
+/** Hook para obtener el estado SMTP del backend */
+export function useSmtpStatus() {
+  return useQuery({
+    queryKey: preferenceKeys.smtp(),
+    queryFn: getSmtpStatus,
+    staleTime: 1000 * 60, // 1 minuto
+  })
+}
+
+/** Hook para configurar y verificar credenciales SMTP */
+export function useConfigureSmtp() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: configureSmtp,
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: preferenceKeys.smtp() })
+      toast.success(data.message || 'Credenciales SMTP guardadas exitosamente')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Error al configurar SMTP')
+    },
+  })
+}
+
