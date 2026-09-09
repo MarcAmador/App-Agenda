@@ -34,11 +34,17 @@ const envSchema = z.object({
 })
 
 
-const parsed = envSchema.safeParse(process.env)
+let parsedEnv: z.infer<typeof envSchema>
 
-if (!parsed.success) {
-  console.error('❌  Variables de entorno inválidas:\n', parsed.error.format())
+try {
+  parsedEnv = envSchema.parse(process.env)
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('❌  Variables de entorno inválidas:\n', error.format())
+  } else {
+    console.error('❌  Error al inicializar variables de entorno:\n', error)
+  }
   process.exit(1)
 }
 
-export const env = parsed.data
+export const env = parsedEnv
