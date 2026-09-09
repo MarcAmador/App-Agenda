@@ -26,8 +26,8 @@ export const UpdateUserPreferencesSchema = z.object({
   reminder_lead_time_minutes: z
     .number({ invalid_type_error: 'El tiempo de anticipación debe ser un número' })
     .int()
-    .min(5, { message: 'El tiempo mínimo de anticipación es de 5 minutos' })
-    .max(10080, { message: 'El tiempo máximo es de 7 días (10080 minutos)' })
+    .min(1, { message: 'El tiempo mínimo de anticipación es de 1 minuto' })
+    .max(200000, { message: 'El tiempo de anticipación o combinación es inválido' })
     .optional(),
   theme: ThemeEnum.optional(),
 })

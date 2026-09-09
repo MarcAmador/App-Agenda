@@ -29,14 +29,8 @@ import {
 } from '@/hooks/usePreferences'
 import { useAuth } from '@/context/AuthContext'
 import type { NotificationChannel } from '@/types/database.types'
-
-const LEAD_TIME_OPTIONS = [
-  { label: '15 minutos antes', value: 15 },
-  { label: '30 minutos antes', value: 30 },
-  { label: '1 hora antes (Recomendado)', value: 60 },
-  { label: '2 horas antes', value: 120 },
-  { label: '1 día antes (24 horas)', value: 1440 },
-]
+import { MultiSelect } from 'primereact/multiselect'
+import { LEAD_TIME_OPTIONS, encodeLeadTimes, decodeLeadTimes } from '@/utils/leadTimes'
 
 export function NotificationSettings() {
   const { user } = useAuth()
@@ -49,7 +43,7 @@ export function NotificationSettings() {
   const [channels, setChannels] = useState<NotificationChannel[]>(['email'])
   const [phoneNumber, setPhoneNumber] = useState('')
   const [telegramChatId, setTelegramChatId] = useState('')
-  const [leadTime, setLeadTime] = useState(60)
+  const [leadTimes, setLeadTimes] = useState<number[]>([15])
 
   // Pruebas
   const [testChannel, setTestChannel] = useState<NotificationChannel>('email')
@@ -84,7 +78,7 @@ export function NotificationSettings() {
       setChannels(prefs.notification_channels ?? ['email'])
       setPhoneNumber(prefs.phone_number ?? '')
       setTelegramChatId(prefs.telegram_chat_id ?? '')
-      setLeadTime(prefs.reminder_lead_time_minutes ?? 60)
+      setLeadTimes(decodeLeadTimes(prefs.reminder_lead_time_minutes))
     }
   }, [prefs])
 
@@ -103,7 +97,7 @@ export function NotificationSettings() {
       notification_channels: channels,
       phone_number: phoneNumber.trim() ? phoneNumber.trim() : null,
       telegram_chat_id: telegramChatId.trim() ? telegramChatId.trim() : null,
-      reminder_lead_time_minutes: leadTime,
+      reminder_lead_time_minutes: encodeLeadTimes(leadTimes),
     })
   }
 
@@ -437,25 +431,64 @@ export function NotificationSettings() {
           </span>
         </div>
 
-        {/* Selector de Tiempo de Anticipación */}
+        {/* Selector MultiSelect de Tiempos de Anticipación */}
         <div className="form-control md:col-span-2">
-          <label className="label py-1 text-[11px] font-semibold text-base-content/70">
+          <label className="label py-1 text-[11px] font-semibold text-base-content/70 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-primary" />
-              Tiempo de anticipación para las alertas
+              Tiempos de anticipación para las alertas (Multiselección)
+            </span>
+            <span className="text-[10px] text-primary font-medium">
+              {leadTimes.length} {leadTimes.length === 1 ? 'tiempo activo' : 'tiempos activos'}
             </span>
           </label>
-          <select
-            value={leadTime}
-            onChange={(e) => setLeadTime(Number(e.target.value))}
-            className="select select-sm select-bordered rounded-xl text-xs font-medium max-w-sm"
-          >
-            {LEAD_TIME_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <div className="w-full md:max-w-xl">
+            <MultiSelect
+              value={leadTimes}
+              options={LEAD_TIME_OPTIONS}
+              onChange={(e) => {
+                if (Array.isArray(e.value) && e.value.length > 0) {
+                  setLeadTimes(e.value)
+                }
+              }}
+              optionLabel="label"
+              optionValue="value"
+              display="chip"
+              placeholder="Elige uno o más tiempos de anticipación..."
+              className="w-full text-xs rounded-xl border border-base-300"
+              panelClassName="text-xs"
+              maxSelectedLabels={5}
+            />
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            <span className="text-[10px] text-base-content/50 self-center mr-1">Atajos rápidos:</span>
+            {[3, 5, 10, 15, 60].map((mins) => {
+              const active = leadTimes.includes(mins)
+              return (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => {
+                    if (active) {
+                      if (leadTimes.length > 1) {
+                        setLeadTimes(leadTimes.filter((m) => m !== mins))
+                      }
+                    } else {
+                      setLeadTimes([...leadTimes, mins].sort((a, b) => a - b))
+                    }
+                  }}
+                  className={`btn btn-xs rounded-lg transition-all ${
+                    active ? 'btn-primary text-white shadow-xs' : 'btn-outline border-base-300 text-base-content/70 hover:btn-ghost'
+                  }`}
+                >
+                  {active ? `✓ ${mins < 60 ? `${mins}m` : '1h'}` : `+ ${mins < 60 ? `${mins}m` : '1h'}`}
+                </button>
+              )
+            })}
+          </div>
+          <span className="text-[10px] text-base-content/50 mt-1">
+            Se despachará una alerta independiente para cada tiempo seleccionado (ej. 15 min, 10 min, 5 min y 3 min antes).
+          </span>
         </div>
       </div>
 

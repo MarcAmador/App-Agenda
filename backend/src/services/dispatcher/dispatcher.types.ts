@@ -14,6 +14,7 @@ export interface NotificationPayload {
   phoneNumber?: string | null
   telegramChatId?: string | null
   isTest?: boolean
+  leadMinutes?: number
 }
 
 export interface DeliveryResult {

@@ -13,8 +13,6 @@ import {
   Sparkles,
   TrendingUp,
   Check,
-  Calendar as CalendarIcon,
-  BellRing,
 } from 'lucide-react'
 
 import { useAuth } from '@/context/AuthContext'
@@ -22,7 +20,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { useTasks, useCreateTask, useUpdateTaskStatus } from '@/hooks/useTasks'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
 import { TaskFormModal } from '@/components/tasks/TaskFormModal'
-import type { Task, CreateTaskInput } from '@/types/database.types'
+import type { CreateTaskInput } from '@/types/database.types'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -62,7 +60,7 @@ export default function DashboardPage() {
     q1: tasks.filter((t) => t.priority === 'urgente_importante').length,
     q2: tasks.filter((t) => t.priority === 'importante_no_urgente').length,
     q3: tasks.filter((t) => t.priority === 'urgente_no_importante').length,
-    q4: tasks.filter((t) => t.priority === 'no_urgente_no_importante').length,
+    q4: tasks.filter((t) => t.priority === 'no_urgente_baja').length,
   }
 
   const completionRate = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0

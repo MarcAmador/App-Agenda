@@ -3,7 +3,7 @@ import {
   LayoutDashboard, LayoutList, CalendarDays,
   Grid2x2, Settings, X,
 } from 'lucide-react'
-import { useTasks } from '@/hooks/useTasks'
+import { useTasks, useTasksRealtime } from '@/hooks/useTasks'
 
 interface SidebarProps {
   open: boolean
@@ -11,8 +11,15 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { data: pendingTasksData } = useTasks({ status: 'pendiente' })
-  const pendingCount = pendingTasksData?.count ?? 0
+  // Sincronización reactiva en tiempo real
+  useTasksRealtime()
+
+  // Caché compartido de tareas activas (actualización instantánea sin recargar)
+  const { data: tasksData } = useTasks()
+  const activeTasks = (tasksData?.data ?? []).filter(
+    (t) => t.status === 'pendiente' || t.status === 'en_curso'
+  )
+  const pendingCount = activeTasks.length
 
   const navItems = [
     { to: '/',           icon: LayoutDashboard, label: 'Dashboard',     end: true },

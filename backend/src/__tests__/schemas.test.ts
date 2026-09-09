@@ -1,5 +1,6 @@
 import { CreateTaskSchema, UpdateTaskSchema, TaskFiltersSchema } from '../schemas/task.schemas'
 import { UpdateUserPreferencesSchema, SendTestNotificationSchema } from '../schemas/preferences.schemas'
+import { encodeLeadTimes, decodeLeadTimes } from '../utils/leadTimes'
 
 describe('Backend Schemas Validation', () => {
   describe('CreateTaskSchema', () => {
@@ -78,6 +79,22 @@ describe('Backend Schemas Validation', () => {
     it('rejects invalid notification channel', () => {
       const invalid = { channel: 'discord' }
       expect(() => SendTestNotificationSchema.parse(invalid)).toThrow()
+    })
+
+    it('validates lead times with 3, 5, 10 minutes and encoded multi-select', () => {
+      const threeMin = { reminder_lead_time_minutes: 3 }
+      expect(UpdateUserPreferencesSchema.parse(threeMin).reminder_lead_time_minutes).toBe(3)
+
+      const encodedMulti = { reminder_lead_time_minutes: encodeLeadTimes([3, 5, 10]) }
+      const parsed = UpdateUserPreferencesSchema.parse(encodedMulti)
+      expect(parsed.reminder_lead_time_minutes).toBeGreaterThan(100000)
+      expect(decodeLeadTimes(parsed.reminder_lead_time_minutes)).toEqual([3, 5, 10])
+    })
+
+    it('correctly handles legacy single lead time values', () => {
+      expect(decodeLeadTimes(15)).toEqual([15])
+      expect(decodeLeadTimes(60)).toEqual([60])
+      expect(decodeLeadTimes(null)).toEqual([60])
     })
   })
 })

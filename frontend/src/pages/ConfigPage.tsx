@@ -31,13 +31,15 @@ export default function ConfigPage() {
         <UserProfileCard />
 
         {/* 2. Ajustes de Notificaciones y Canales */}
-        <NotificationSettings />
+        <div id="tour-notifications-section">
+          <NotificationSettings />
+        </div>
 
         {/* 3. Ajustes de Apariencia / Tema */}
         <ThemeSettings />
 
         {/* 4. Tour Guiado de Bienvenida */}
-        <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4">
+        <div id="tour-config-card" className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
@@ -60,7 +62,9 @@ export default function ConfigPage() {
         </div>
 
         {/* 5. Historial de Auditoría de Envíos */}
-        <ReminderLogsTable />
+        <div id="tour-audit-section">
+          <ReminderLogsTable />
+        </div>
       </div>
     </AppLayout>
   )

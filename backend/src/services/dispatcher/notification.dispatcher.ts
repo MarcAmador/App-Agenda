@@ -8,6 +8,7 @@ import type {
 import { EmailAdapter } from './adapters/email.adapter'
 import { WhatsAppAdapter } from './adapters/whatsapp.adapter'
 import { TelegramAdapter } from './adapters/telegram.adapter'
+import { decodeLeadTimes } from '../../utils/leadTimes'
 
 export class NotificationDispatcher {
   private adapters: Map<NotificationChannel, ChannelAdapter>
@@ -56,11 +57,10 @@ export class NotificationDispatcher {
       phoneNumber: destination ?? prefs?.phone_number ?? null,
       telegramChatId: destination ?? prefs?.telegram_chat_id ?? null,
       isTest: true,
+      leadMinutes: 15,
     }
 
     const result = await adapter.send(payload)
-
-    // Opcional: registrar en reminder_logs si existe una tarea o simular log
     return result
   }
 
@@ -76,19 +76,27 @@ export class NotificationDispatcher {
 
   /**
    * Motor de despacho: escanea tareas próximas al vencimiento y envía los recordatorios
+   * en cada uno de los tiempos de anticipación configurados por el usuario.
    */
   async dispatchUpcomingReminders(): Promise<{ processed: number; sent: number; failed: number }> {
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const nowMs = now.getTime()
 
-    // 1. Obtener tareas pendientes o en curso con fecha límite asignada
+    // 1. Formatear la fecha local de hoy: YYYY-MM-DD (descartar tareas de fechas pasadas)
+    const localYear = now.getFullYear()
+    const localMonth = String(now.getMonth() + 1).padStart(2, '0')
+    const localDay = String(now.getDate()).padStart(2, '0')
+    const localToday = `${localYear}-${localMonth}-${localDay}`
+
+    // Consultar tareas activas (solo hoy en adelante)
     const { data: tasks, error: tasksError } = await supabaseAdmin
       .from('tasks')
       .select('*')
       .in('status', ['pendiente', 'en_curso'])
       .is('deleted_at', null)
-      .gte('due_date', today)
+      .gte('due_date', localToday)
       .order('due_date', { ascending: true })
-      .limit(50)
+      .limit(100)
 
     if (tasksError) {
       throw new Error(`Error al consultar tareas para recordatorios: ${tasksError.message}`)
@@ -98,74 +106,156 @@ export class NotificationDispatcher {
     let sent = 0
     let failed = 0
 
+    // Cache local de preferencias y usuarios por ciclo para optimizar consultas
+    const prefsCache = new Map<string, any>()
+    const usersCache = new Map<string, any>()
+
     for (const task of tasks ?? []) {
-      // 2. Obtener preferencias del dueño de la tarea
-      const { data: prefs } = await supabaseAdmin
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', task.user_id)
-        .single()
+      // Regla 1: Estado estrictamente activo (ignora completadas, anuladas, archivadas, eliminadas)
+      if (!task || task.deleted_at !== null) continue
+      if (task.status !== 'pendiente' && task.status !== 'en_curso') continue
+      if (!task.due_date) continue
+
+      // Regla 2: Calcular el momento exacto de vencimiento (hora local)
+      const [tYear, tMonth, tDay] = task.due_date.split('-').map(Number)
+      let tHours = 23
+      let tMin = 59
+      let tSec = 59
+
+      if (task.due_time) {
+        const parts = task.due_time.split(':').map(Number)
+        tHours = parts[0] ?? 0
+        tMin = parts[1] ?? 0
+        tSec = parts[2] ?? 0
+      }
+
+      const dueDateTime = new Date(tYear, tMonth - 1, tDay, tHours, tMin, tSec)
+      const dueMs = dueDateTime.getTime()
+
+      // Regla 3: TAREAS VENCIDAS
+      // Si la fecha y hora de vencimiento ya pasaron, NUNCA enviar avisos de anticipación
+      if (nowMs >= dueMs) {
+        continue
+      }
+
+      // Obtener preferencias del usuario
+      let prefs = prefsCache.get(task.user_id)
+      if (!prefs) {
+        const { data: userPrefs } = await supabaseAdmin
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', task.user_id)
+          .single()
+        prefs = userPrefs
+        if (prefs) prefsCache.set(task.user_id, prefs)
+      }
 
       if (!prefs || !prefs.notification_channels || prefs.notification_channels.length === 0) {
         continue
       }
 
-      // Obtener datos del usuario
-      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(task.user_id)
-      if (!userData?.user) continue
+      // Obtener datos de usuario
+      let userData = usersCache.get(task.user_id)
+      if (!userData) {
+        const { data: uData } = await supabaseAdmin.auth.admin.getUserById(task.user_id)
+        userData = uData?.user
+        if (userData) usersCache.set(task.user_id, userData)
+      }
 
+      if (!userData) continue
+
+      // Regla 4: CAMBIOS VIGENTES HACIA ADELANTE
+      // Los cambios de horario o creación de tareas rigen estrictamente desde el instante en que ocurrieron
+      const taskCreatedAtMs = new Date(task.created_at).getTime()
+      const prefsUpdatedAtMs = prefs.updated_at
+        ? new Date(prefs.updated_at).getTime()
+        : new Date(prefs.created_at || nowMs).getTime()
+
+      // El hito de notificación no debe ser anterior al momento de creación o cambio
+      const activeSinceMs = Math.max(taskCreatedAtMs, prefsUpdatedAtMs)
+
+      // Decodificar todos los tiempos de anticipación elegidos por el usuario (ej: [3, 5, 10, 15])
+      const leadTimes = decodeLeadTimes(prefs.reminder_lead_time_minutes)
       const channels: NotificationChannel[] = prefs.notification_channels
 
-      for (const ch of channels) {
-        // Verificar si ya se envió un recordatorio exitoso para esta tarea en este canal
-        const { data: existingLog } = await supabaseAdmin
-          .from('reminder_logs')
-          .select('id')
-          .eq('task_id', task.id)
-          .eq('channel', ch)
-          .eq('status', 'sent')
-          .maybeSingle()
+      for (const leadMin of leadTimes) {
+        const triggerMs = dueMs - (leadMin * 60 * 1000)
 
-        if (existingLog) {
-          // Ya fue notificado previamente
+        // 4a: Si el momento de disparo ya había pasado antes de que se guardara la configuración o se creara la tarea, OMITIR
+        if (triggerMs < activeSinceMs - 60000) {
           continue
         }
 
-        processed++
-        const adapter = this.adapters.get(ch)
-        if (!adapter) continue
-
-        const payload: NotificationPayload = {
-          taskId: task.id,
-          taskTitle: task.title,
-          taskDescription: task.description,
-          dueDate: task.due_date,
-          dueTime: task.due_time,
-          priority: task.priority,
-          scopePeriod: task.scope_period,
-          userName: (userData.user.user_metadata?.full_name as string) ?? 'Coordinador',
-          userEmail: userData.user.email,
-          phoneNumber: prefs.phone_number,
-          telegramChatId: prefs.telegram_chat_id,
+        // 4b: ¿Ya llegó el momento de disparar esta alerta en tiempo real?
+        if (nowMs < triggerMs) {
+          // Aún falta tiempo para este hito específico
+          continue
         }
 
-        const delivery = await adapter.send(payload)
+        // 4c: Ventana de captura en tiempo real: máximo 3 minutos de desfase para no enviar avisos extemporáneos
+        const maxDispatchLagMs = 3 * 60 * 1000
+        if (nowMs - triggerMs > maxDispatchLagMs) {
+          continue
+        }
 
-        // Registrar en reminder_logs
-        await supabaseAdmin.from('reminder_logs').insert({
-          task_id: task.id,
-          user_id: task.user_id,
-          channel: ch,
-          status: delivery.success ? 'sent' : 'failed',
-          scheduled_for: new Date().toISOString(),
-          sent_at: delivery.success ? delivery.sentAt.toISOString() : null,
-          error_message: delivery.error ?? null,
-        })
+        const scheduledIso = new Date(triggerMs).toISOString()
 
-        if (delivery.success) {
-          sent++
-        } else {
-          failed++
+        for (const ch of channels) {
+          // Verificar si ya se envió el recordatorio para este hito exacto
+          const { data: existingLog } = await supabaseAdmin
+            .from('reminder_logs')
+            .select('id')
+            .eq('task_id', task.id)
+            .eq('channel', ch)
+            .eq('scheduled_for', scheduledIso)
+            .eq('status', 'sent')
+            .maybeSingle()
+
+          if (existingLog) {
+            // Ya fue notificado previamente para este tiempo
+            continue
+          }
+
+          processed++
+          const adapter = this.adapters.get(ch)
+          if (!adapter) continue
+
+          const payload: NotificationPayload = {
+            taskId: task.id,
+            taskTitle: task.title,
+            taskDescription: task.description,
+            dueDate: task.due_date,
+            dueTime: task.due_time,
+            priority: task.priority,
+            scopePeriod: task.scope_period,
+            userName: (userData.user_metadata?.full_name as string) ?? userData.email?.split('@')[0] ?? 'Coordinador',
+            userEmail: userData.email,
+            phoneNumber: prefs.phone_number,
+            telegramChatId: prefs.telegram_chat_id,
+            leadMinutes: leadMin,
+          }
+
+          console.log(`[NotificationDispatcher] 🚀 Enviando alerta (${leadMin} min antes) para "${task.title}" vía ${ch} a ${userData.email}...`)
+          const delivery = await adapter.send(payload)
+
+          // Registrar en reminder_logs
+          await supabaseAdmin.from('reminder_logs').insert({
+            task_id: task.id,
+            user_id: task.user_id,
+            channel: ch,
+            status: delivery.success ? 'sent' : 'failed',
+            scheduled_for: scheduledIso,
+            sent_at: delivery.success ? delivery.sentAt.toISOString() : null,
+            error_message: delivery.error ?? null,
+          })
+
+          if (delivery.success) {
+            sent++
+            console.log(`[NotificationDispatcher] ✅ Alerta (${leadMin} min antes) despachada exitosamente para "${task.title}".`)
+          } else {
+            failed++
+            console.warn(`[NotificationDispatcher] ⚠️ Fallo al despachar alerta para "${task.title}": ${delivery.error}`)
+          }
         }
       }
     }

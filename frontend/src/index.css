@@ -220,6 +220,22 @@
   background: oklch(var(--b1));
 }
 
+.p-calendar .p-datepicker-trigger {
+  background: oklch(var(--b2));
+  border: 1px solid oklch(var(--b3));
+  border-left: 0;
+  color: oklch(var(--bc) / 0.7);
+  border-top-right-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  padding: 0 0.75rem;
+  transition: background-color 0.15s ease;
+}
+
+.p-calendar .p-datepicker-trigger:hover {
+  background: oklch(var(--b3));
+  color: oklch(var(--bc));
+}
+
 .p-datepicker {
   background: oklch(var(--b1));
   border: 1px solid oklch(var(--b3));
@@ -297,6 +313,39 @@
   font-size: 0.75rem;
 }
 
+/* MultiSelect Chips & Tokens */
+.p-multiselect .p-multiselect-label {
+  padding: 0.35rem 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.p-multiselect-token {
+  background: oklch(var(--p) / 0.12) !important;
+  color: oklch(var(--p)) !important;
+  border: 1px solid oklch(var(--p) / 0.25) !important;
+  border-radius: 0.5rem !important;
+  padding: 0.15rem 0.5rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.p-multiselect-token-icon {
+  font-size: 0.7rem !important;
+  cursor: pointer !important;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.p-multiselect-token-icon:hover {
+  opacity: 1;
+}
+
 /* Textarea */
 .p-inputtextarea {
   background: oklch(var(--b1));
@@ -354,7 +403,12 @@
 }
 
 /* ─── Driver.js: Onboarding Popover Estilizado Premium ─────── */
+.driver-overlay {
+  z-index: 999999990 !important;
+}
+
 .driver-popover {
+  z-index: 1000000000 !important;
   background-color: oklch(var(--b1) / 0.96) !important;
   backdrop-filter: blur(16px) !important;
   color: oklch(var(--bc)) !important;

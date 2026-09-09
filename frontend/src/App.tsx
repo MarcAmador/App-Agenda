@@ -9,6 +9,7 @@ import { PrimeReactProvider } from 'primereact/api'
 
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
+import { TourProvider } from '@/context/TourContext'
 import { ProtectedRoute } from '@/components/common/ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
@@ -35,7 +36,8 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <BrowserRouter>
-              <Routes>
+              <TourProvider>
+                <Routes>
                 {/* Rutas públicas */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/callback" element={<AuthCallbackPage />} />
@@ -84,8 +86,8 @@ export default function App() {
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-
+                </Routes>
+              </TourProvider>
             </BrowserRouter>
 
             <Toaster

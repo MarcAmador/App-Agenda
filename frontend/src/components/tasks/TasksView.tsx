@@ -333,7 +333,7 @@ export function TasksView({
 
       {/* ── Renderizado Dinámico de Vistas ───────────────────────── */}
       {viewMode === 'tabla' && (
-        <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden rounded-2xl">
+        <div id="tour-tasks-table" className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden rounded-2xl">
           <TaskDataTable
             tasks={tasks}
             loading={isLoading}
@@ -347,25 +347,29 @@ export function TasksView({
       )}
 
       {viewMode === 'calendario' && (
-        <TaskCalendar
-          tasks={tasks}
-          loading={isLoading}
-          onEdit={handleOpenEdit}
-          onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
-          onCreateForDate={handleCreateForDate}
-        />
+        <div id="tour-calendar-view">
+          <TaskCalendar
+            tasks={tasks}
+            loading={isLoading}
+            onEdit={handleOpenEdit}
+            onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+            onCreateForDate={handleCreateForDate}
+          />
+        </div>
       )}
 
       {viewMode === 'matriz' && (
-        <EisenhowerMatrix
-          tasks={tasks}
-          loading={isLoading}
-          onEdit={handleOpenEdit}
-          onDelete={(id) => deleteTask.mutate(id)}
-          onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
-          onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
-          onQuickAdd={handleQuickAddQuadrant}
-        />
+        <div id="tour-matrix-view">
+          <EisenhowerMatrix
+            tasks={tasks}
+            loading={isLoading}
+            onEdit={handleOpenEdit}
+            onDelete={(id) => deleteTask.mutate(id)}
+            onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+            onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
+            onQuickAdd={handleQuickAddQuadrant}
+          />
+        </div>
       )}
 
       {/* ── Modal de Formulario de Tarea (Reutilizable en todas las vistas) ── */}

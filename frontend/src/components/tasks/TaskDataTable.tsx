@@ -180,9 +180,9 @@ export function TaskDataTable({
 
       {/* Editar */}
       <button
-        className="btn btn-ghost btn-xs btn-circle tooltip"
-        data-pr-tooltip="Editar"
-        data-pr-position="top"
+        type="button"
+        className="btn btn-ghost btn-xs btn-circle"
+        title="Editar tarea"
         onClick={() => onEdit(row)}
       >
         <Pencil className="w-3.5 h-3.5 text-base-content/70" />
@@ -259,7 +259,7 @@ export function TaskDataTable({
           value={globalFilter}
           onChange={(e) => setGlobalFilter(e.target.value)}
           placeholder="Buscar actividades..."
-          className="input input-sm input-bordered rounded-xl pl-9 pr-4 w-64 text-xs font-medium focus:outline-primary transition-all shadow-2xs"
+          className="input input-sm input-bordered rounded-xl !pl-10 !pr-4 w-64 text-xs font-medium focus:outline-primary transition-all shadow-2xs"
         />
       </div>
     </div>
@@ -275,6 +275,9 @@ export function TaskDataTable({
         loading={loading}
         paginator
         rows={rows}
+        onPage={(e) => {
+          if (e.rows) setRows(e.rows)
+        }}
         totalRecords={totalRecords}
         dataKey="id"
         globalFilter={globalFilter}

@@ -94,7 +94,7 @@ export function AdvancedFilterBar({
             placeholder="Buscar por título o descripción..."
             value={filters.search ?? ''}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="input input-sm input-bordered w-full pl-9.5 pr-8 text-xs rounded-xl focus:border-primary"
+            className="input input-sm input-bordered w-full !pl-10 !pr-8 text-xs rounded-xl focus:border-primary"
           />
           {filters.search && (
             <button

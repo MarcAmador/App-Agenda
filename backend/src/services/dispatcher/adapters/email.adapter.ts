@@ -22,8 +22,19 @@ export class EmailAdapter implements ChannelAdapter {
     try {
       const { transporter, isEthereal } = await this.getTransporter()
 
+      let leadLabel = ''
+      if (payload.leadMinutes) {
+        if (payload.leadMinutes < 60) leadLabel = `${payload.leadMinutes} min antes`
+        else if (payload.leadMinutes === 60) leadLabel = '1 hora antes'
+        else if (payload.leadMinutes === 120) leadLabel = '2 horas antes'
+        else if (payload.leadMinutes === 1440) leadLabel = '1 día antes'
+        else leadLabel = `${payload.leadMinutes / 60} horas antes`
+      }
+
       const subject = payload.isTest
         ? '🔔 [Prueba] Notificación de Entrega · AgendaPro'
+        : leadLabel
+        ? `⏰ Recordatorio (${leadLabel}): ${payload.taskTitle}`
         : `⏰ Recordatorio Académico: ${payload.taskTitle}`
 
       const html = this.generateHtml(payload)
@@ -205,11 +216,18 @@ ${appUrl}/tareas
               <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 28px;">
                 <tr>
                   <td style="padding: 24px;">
-                    <!-- Badge Prioridad -->
-                    ${payload.priority ? `
-                    <div style="display: inline-block; padding: 4px 10px; background-color: ${priorityColor}15; border: 1px solid ${priorityColor}40; border-radius: 20px; font-size: 11px; font-weight: 700; color: ${priorityColor}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
-                      ⚡ ${payload.priority}
-                    </div>` : ''}
+                    <!-- Badges de Alerta y Prioridad -->
+                    <div style="margin-bottom: 12px;">
+                      ${payload.leadMinutes ? `
+                      <div style="display: inline-block; padding: 4px 10px; background-color: #e0f2fe; border: 1px solid #bae6fd; border-radius: 20px; font-size: 11px; font-weight: 700; color: #0284c7; margin-right: 6px;">
+                        ⏳ Alerta ${payload.leadMinutes < 60 ? `${payload.leadMinutes} min antes` : payload.leadMinutes === 60 ? '1 hora antes' : `${payload.leadMinutes / 60}h antes`}
+                      </div>` : ''}
+
+                      ${payload.priority ? `
+                      <div style="display: inline-block; padding: 4px 10px; background-color: ${priorityColor}15; border: 1px solid ${priorityColor}40; border-radius: 20px; font-size: 11px; font-weight: 700; color: ${priorityColor}; text-transform: uppercase; letter-spacing: 0.05em;">
+                        ⚡ ${payload.priority}
+                      </div>` : ''}
+                    </div>
 
                     <h2 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #0f172a; line-height: 24px;">
                       ${payload.taskTitle}

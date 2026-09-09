@@ -58,9 +58,14 @@ export async function updateUserPreferences(
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Usuario no autenticado')
 
+  const payload = {
+    ...input,
+    updated_at: new Date().toISOString(),
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('user_preferences') as any)
-    .update(input)
+    .update(payload)
     .eq('user_id', user.id)
     .select()
     .single()
