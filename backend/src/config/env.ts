@@ -21,7 +21,7 @@ const envSchema = z.object({
   SMTP_SECURE:              z.string().default('false'),
   SMTP_USER:                z.string().optional(),
   SMTP_PASS:                z.string().optional(),
-  SMTP_FROM:                z.string().default('AgendaPro <ronaldo22amador@gmail.com>'),
+  SMTP_FROM:                z.string().default('AgendaPro <notificaciones@agendapro.edu>'),
 
   // ─── Twilio WhatsApp (Opcional para despacho API) ──────────────────
   TWILIO_ACCOUNT_SID:       z.string().optional(),

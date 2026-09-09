@@ -18,6 +18,17 @@ import CalendarioPage from '@/pages/CalendarioPage'
 import MatrizPage from '@/pages/MatrizPage'
 import ConfigPage from '@/pages/ConfigPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
+import { AdminRoute } from '@/components/common/AdminRoute'
+import AdminLayout from '@/pages/admin/AdminLayout'
+import AdminOverviewPage from '@/pages/admin/AdminOverviewPage'
+import AdminUsersPage from '@/pages/admin/AdminUsersPage'
+import AdminTemplatesPage from '@/pages/admin/AdminTemplatesPage'
+import AdminEmailsPage from '@/pages/admin/AdminEmailsPage'
+import AdminSmtpPage from '@/pages/admin/AdminSmtpPage'
+import AdminAuditPage from '@/pages/admin/AdminAuditPage'
+import AdminAlertsPage from '@/pages/admin/AdminAlertsPage'
+import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
+import AdminGoogleOAuthPage from '@/pages/admin/AdminGoogleOAuthPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +94,26 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
+
+                {/* Rutas exclusivas del Panel Administrativo (SuperAdmin) */}
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRoute>
+                      <AdminLayout />
+                    </AdminRoute>
+                  }
+                >
+                  <Route index element={<AdminOverviewPage />} />
+                  <Route path="usuarios" element={<AdminUsersPage />} />
+                  <Route path="plantillas" element={<AdminTemplatesPage />} />
+                  <Route path="emails" element={<AdminEmailsPage />} />
+                  <Route path="smtp" element={<AdminSmtpPage />} />
+                  <Route path="auditoria" element={<AdminAuditPage />} />
+                  <Route path="alertas" element={<AdminAlertsPage />} />
+                  <Route path="configuracion" element={<AdminSettingsPage />} />
+                  <Route path="oauth" element={<AdminGoogleOAuthPage />} />
+                </Route>
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

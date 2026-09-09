@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
-import { env } from '../../../config/env'
+import { smtpStore } from '../../../config/smtpStore'
 import type { ChannelAdapter, DeliveryResult, NotificationPayload } from '../dispatcher.types'
 
 export class EmailAdapter implements ChannelAdapter {
@@ -40,7 +40,8 @@ export class EmailAdapter implements ChannelAdapter {
       const html = this.generateHtml(payload)
       const text = this.generatePlainText(payload)
 
-      const fromAddress = env.SMTP_FROM || `"AgendaPro Académico" <${env.SMTP_USER || 'notificaciones@agendapro.edu'}>`
+      const cfg = smtpStore.get()
+      const fromAddress = `"${cfg.fromName}" <${cfg.fromEmail || cfg.user || 'notificaciones@agendapro.edu'}>`
 
       const info = await transporter.sendMail({
         from: fromAddress,
@@ -97,32 +98,36 @@ export class EmailAdapter implements ChannelAdapter {
   }
 
   /**
-   * Inicializa el transporte SMTP real (Gmail, Outlook, etc.) o Ethereal para tests
+   * Inicializa el transporte SMTP desde SmtpConfigStore (fuente de verdad única).
+   * El transporter se cachea para eficiencia, y se resetea automáticamente cuando
+   * cambia la configuración desde el panel SuperAdmin.
    */
   private async getTransporter(): Promise<{ transporter: Transporter; isEthereal: boolean }> {
-    // Si hay credenciales SMTP configuradas en .env o runtime
-    if (env.SMTP_USER && env.SMTP_PASS) {
-      if (!this.cachedTransporter) {
-        const cleanPass = env.SMTP_PASS.replace(/\s+/g, '')
-        const host = env.SMTP_HOST || 'smtp.gmail.com'
-        const port = Number(env.SMTP_PORT) || 587
-        const secure = env.SMTP_SECURE === 'true'
+    if (!smtpStore.isDatabaseLoaded()) {
+      await smtpStore.loadFromDatabase()
+    }
+    const cfg = smtpStore.get()
 
+    // Si hay credenciales SMTP configuradas (desde BD o .env vía smtpStore)
+    if (smtpStore.hasCredentials()) {
+      if (!this.cachedTransporter) {
         this.cachedTransporter = nodemailer.createTransport({
-          host,
-          port,
-          secure,
+          host: cfg.host,
+          port: cfg.port,
+          secure: cfg.secure,
           family: 4,
           auth: {
-            user: env.SMTP_USER,
-            pass: cleanPass,
+            user: cfg.user,
+            pass: cfg.pass,
           },
         } as any)
+        console.log(`[EmailAdapter] 🔌 Transporter SMTP creado → ${cfg.user}@${cfg.host}:${cfg.port}`)
       }
       return { transporter: this.cachedTransporter, isEthereal: false }
     }
 
-    // Fallback de demostración / test interactivo: Cuenta Ethereal temporal
+    // Fallback de demostración: Cuenta Ethereal temporal
+    console.warn('[EmailAdapter] ⚠️ Sin credenciales SMTP. Usando Ethereal (solo preview, no llega al destinatario).')
     const testAccount = await nodemailer.createTestAccount()
     const etherealTransporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
@@ -138,7 +143,7 @@ export class EmailAdapter implements ChannelAdapter {
   }
 
   private generatePlainText(payload: NotificationPayload): string {
-    const appUrl = env.CORS_ORIGIN || 'http://localhost:5180'
+    const appUrl = smtpStore.get().appUrl
     return `
 AgendaPro · Alerta de Productividad Académica
 --------------------------------------------------
@@ -157,7 +162,7 @@ ${appUrl}/tareas
   }
 
   private generateHtml(payload: NotificationPayload): string {
-    const appUrl = env.CORS_ORIGIN || 'http://localhost:5180'
+    const appUrl = smtpStore.get().appUrl
     const priorityColor =
       payload.priority?.toLowerCase().includes('urgente') && payload.priority?.toLowerCase().includes('importante')
         ? '#ef4444' // Q1 Red

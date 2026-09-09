@@ -17,6 +17,8 @@ interface AuthContextValue {
   isLoading: boolean
   isAuthenticated: boolean
   signInWithGoogle: () => Promise<void>
+  signInWithPassword: (email: string, pass: string) => Promise<{ error: AuthError | null }>
+  signUpWithPassword: (email: string, pass: string, fullName: string) => Promise<{ error: AuthError | null; data: any }>
   signOut: () => Promise<void>
   updateDisplayName: (name: string) => Promise<void>
   error: AuthError | null
@@ -96,6 +98,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (error) setError(error)
   }, [])
 
+  /** Inicia sesión con correo y contraseña */
+  const signInWithPassword = useCallback(async (email: string, pass: string) => {
+    setError(null)
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: pass,
+    })
+    if (error) {
+      setError(error)
+      return { error }
+    }
+    if (data.session) {
+      setSession(data.session)
+      setUser(data.user)
+    }
+    return { error: null }
+  }, [])
+
+  /** Registra un nuevo usuario con correo, contraseña y nombre completo */
+  const signUpWithPassword = useCallback(async (email: string, pass: string, fullName: string) => {
+    setError(null)
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: pass,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          name: fullName.trim(),
+        },
+      },
+    })
+    if (error) {
+      setError(error)
+      return { error, data: null }
+    }
+    if (data.session) {
+      setSession(data.session)
+      setUser(data.user)
+    }
+    return { error: null, data }
+  }, [])
+
   /** Cierra la sesión y limpia el estado local */
   const signOut = useCallback(async () => {
     setError(null)
@@ -145,6 +189,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAuthenticated: !!user,
     signInWithGoogle,
+    signInWithPassword,
+    signUpWithPassword,
     signOut,
     updateDisplayName,
     error,

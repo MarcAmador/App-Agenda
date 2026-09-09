@@ -10,6 +10,63 @@ import { WhatsAppAdapter } from './adapters/whatsapp.adapter'
 import { TelegramAdapter } from './adapters/telegram.adapter'
 import { decodeLeadTimes } from '../../utils/leadTimes'
 
+/**
+ * Obtiene la fecha YYYY-MM-DD actual en la zona horaria institucional
+ */
+function getTodayInTimezone(timeZone = 'America/Guatemala'): string {
+  try {
+    const dtf = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    return dtf.format(new Date())
+  } catch {
+    return new Date().toISOString().split('T')[0]
+  }
+}
+
+/**
+ * Convierte una fecha y hora local (ej: '2026-09-09', '14:30:00') en una zona horaria IANA
+ * a milisegundos Unix en tiempo UTC.
+ */
+function parseZonedDateTime(
+  dateStr: string,
+  timeStr?: string | null,
+  timeZone = 'America/Guatemala'
+): number {
+  const tStr = timeStr ? timeStr.substring(0, 8) : '23:59:59'
+  try {
+    const dummyUtc = new Date(`${dateStr}T${tStr}Z`)
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+    const parts = dtf.formatToParts(dummyUtc)
+    const p: Record<string, string> = {}
+    parts.forEach(({ type, value }) => {
+      p[type] = value
+    })
+    let h = parseInt(p.hour, 10)
+    if (h === 24) h = 0
+    const localIsoStr = `${p.year}-${p.month}-${p.day}T${String(h).padStart(2, '0')}:${p.minute}:${p.second}Z`
+    const offsetMs = dummyUtc.getTime() - new Date(localIsoStr).getTime()
+    return dummyUtc.getTime() + offsetMs
+  } catch {
+    // Fallback: America/Guatemala es UTC-6 todo el año
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const [h, min, s] = tStr.split(':').map(Number)
+    return Date.UTC(y, m - 1, d, (h ?? 0) + 6, min ?? 0, s ?? 0)
+  }
+}
+
 export class NotificationDispatcher {
   private adapters: Map<NotificationChannel, ChannelAdapter>
 
@@ -53,7 +110,7 @@ export class NotificationDispatcher {
       dueTime: '18:00:00',
       priority: 'Urgente e Importante',
       userName: (userData.user.user_metadata?.full_name as string) ?? userData.user.email?.split('@')[0] ?? 'Coordinador',
-      userEmail: (channel === 'email' && destination?.trim()) ? destination.trim() : (userData.user.email ?? 'ronaldo22amador@gmail.com'),
+      userEmail: (channel === 'email' && destination?.trim()) ? destination.trim() : (userData.user.email || 'notificaciones@agendapro.edu'),
       phoneNumber: destination ?? prefs?.phone_number ?? null,
       telegramChatId: destination ?? prefs?.telegram_chat_id ?? null,
       isTest: true,
@@ -82,19 +139,16 @@ export class NotificationDispatcher {
     const now = new Date()
     const nowMs = now.getTime()
 
-    // 1. Formatear la fecha local de hoy: YYYY-MM-DD (descartar tareas de fechas pasadas)
-    const localYear = now.getFullYear()
-    const localMonth = String(now.getMonth() + 1).padStart(2, '0')
-    const localDay = String(now.getDate()).padStart(2, '0')
-    const localToday = `${localYear}-${localMonth}-${localDay}`
+    // 1. Formatear la fecha local de hoy en la zona horaria institucional (Guatemala UTC-6)
+    const localToday = getTodayInTimezone('America/Guatemala')
 
-    // Consultar tareas activas (solo hoy en adelante)
+    // Consultar tareas activas (hoy en adelante, o sin due_date asignado explícito)
     const { data: tasks, error: tasksError } = await supabaseAdmin
       .from('tasks')
       .select('*')
       .in('status', ['pendiente', 'en_curso'])
       .is('deleted_at', null)
-      .gte('due_date', localToday)
+      .or(`due_date.gte.${localToday},due_date.is.null`)
       .order('due_date', { ascending: true })
       .limit(100)
 
@@ -114,23 +168,12 @@ export class NotificationDispatcher {
       // Regla 1: Estado estrictamente activo (ignora completadas, anuladas, archivadas, eliminadas)
       if (!task || task.deleted_at !== null) continue
       if (task.status !== 'pendiente' && task.status !== 'en_curso') continue
-      if (!task.due_date) continue
 
-      // Regla 2: Calcular el momento exacto de vencimiento (hora local)
-      const [tYear, tMonth, tDay] = task.due_date.split('-').map(Number)
-      let tHours = 23
-      let tMin = 59
-      let tSec = 59
+      // Si due_date es null, inferir fecha de creación o el día de hoy
+      const effectiveDueDate = task.due_date || (task.created_at ? task.created_at.split('T')[0] : localToday)
 
-      if (task.due_time) {
-        const parts = task.due_time.split(':').map(Number)
-        tHours = parts[0] ?? 0
-        tMin = parts[1] ?? 0
-        tSec = parts[2] ?? 0
-      }
-
-      const dueDateTime = new Date(tYear, tMonth - 1, tDay, tHours, tMin, tSec)
-      const dueMs = dueDateTime.getTime()
+      // Regla 2: Calcular el momento exacto de vencimiento en la zona horaria institucional
+      const dueMs = parseZonedDateTime(effectiveDueDate, task.due_time, 'America/Guatemala')
 
       // Regla 3: TAREAS VENCIDAS
       // Si la fecha y hora de vencimiento ya pasaron, NUNCA enviar avisos de anticipación

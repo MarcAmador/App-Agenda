@@ -163,6 +163,26 @@ function waitForElement(selector: string, timeout = 3500): Promise<HTMLElement |
   })
 }
 
+/**
+ * Determina dinámicamente el mejor lado del popover según la posición del elemento en el viewport.
+ * Evita que el popover se salga de la pantalla cuando el elemento está en la parte inferior.
+ */
+function getSmartSide(
+  el: HTMLElement,
+  preferredSide?: 'top' | 'bottom' | 'left' | 'right'
+): 'top' | 'bottom' | 'left' | 'right' {
+  const rect = el.getBoundingClientRect()
+  const viewportH = window.innerHeight
+  const spaceBelow = viewportH - rect.bottom
+  const spaceAbove = rect.top
+
+  // Si el elemento está en la mitad inferior del viewport y no hay espacio abajo → usar top
+  if (preferredSide === 'bottom' && spaceBelow < 260 && spaceAbove > spaceBelow) return 'top'
+  // Si el elemento está en la mitad superior y no hay espacio arriba → usar bottom
+  if (preferredSide === 'top' && spaceAbove < 200 && spaceBelow > spaceAbove) return 'bottom'
+  return preferredSide ?? 'bottom'
+}
+
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -198,11 +218,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
       const step = TOUR_STEPS[stepIndex]
 
-      // Guardar el paso actual en sessionStorage
       sessionStorage.setItem('agendapro_tour_active', 'true')
       sessionStorage.setItem('agendapro_tour_step', String(stepIndex))
 
-      // Si el paso requiere otra ruta, navegar primero limpiando la instancia previa
       if (location.pathname !== step.route) {
         isNavigatingRef.current = true
         cleanupDriver()
@@ -210,10 +228,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Esperar a que el elemento objetivo esté montado en el DOM
       const targetEl = await waitForElement(step.element, 3500)
       if (!targetEl) {
-        console.warn(`[Tour] Elemento ${step.element} no encontrado en ${step.route}. Saltando al siguiente...`)
+        console.warn(`[Tour] Elemento ${step.element} no encontrado en ${step.route}. Saltando...`)
         if (stepIndex + 1 < TOUR_STEPS.length) {
           executeStep(stepIndex + 1)
         } else {
@@ -222,13 +239,15 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Limpiar rigurosamente cualquier overlay o popover previo antes de dibujar el nuevo paso
       cleanupDriver()
       isNavigatingRef.current = false
 
-      // Desplazar suavemente hacia el elemento objetivo
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      // Scroll suave al elemento con un poco de margen superior
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Esperar a que el scroll termine antes de calcular la posición
+      await new Promise((r) => setTimeout(r, 300))
 
+      const smartSide = getSmartSide(targetEl, step.side)
       const isFirst = stepIndex === 0
       const isLast = stepIndex === TOUR_STEPS.length - 1
 
@@ -236,9 +255,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         animate: true,
         allowClose: true,
         showProgress: true,
-        progressText: `Paso ${stepIndex + 1} de ${TOUR_STEPS.length}`,
-        nextBtnText: isLast ? '¡Comenzar ahora! 🚀' : 'Siguiente →',
-        prevBtnText: isFirst ? '' : '← Anterior',
+        progressText: `{{current}} / {{total}}`,
+        nextBtnText: isLast ? '🎉 ¡Comenzar ahora!' : 'Siguiente →',
+        prevBtnText: '← Anterior',
         showButtons: isFirst ? ['next', 'close'] : ['next', 'previous', 'close'],
         steps: [
           {
@@ -246,7 +265,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
             popover: {
               title: step.title,
               description: step.description,
-              side: step.side ?? 'bottom',
+              side: smartSide,
               align: step.align ?? 'center',
             },
           },
@@ -296,7 +315,6 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     }
   }, [location.pathname, navigate, executeStep, cleanupDriver])
 
-  // Listener para reanudar el tour al cambiar de página o al montar
   useEffect(() => {
     const isTourActive = sessionStorage.getItem('agendapro_tour_active') === 'true'
     const pendingStepStr = sessionStorage.getItem('agendapro_tour_step')
@@ -306,10 +324,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       if (!isNaN(stepIndex) && stepIndex >= 0 && stepIndex < TOUR_STEPS.length) {
         const expectedRoute = TOUR_STEPS[stepIndex].route
         if (location.pathname === expectedRoute) {
-          // Breve retardo para permitir que React termine de montar la vista y sus datos
           const timer = setTimeout(() => {
             executeStep(stepIndex)
-          }, 300)
+          }, 400)
           return () => clearTimeout(timer)
         }
       }

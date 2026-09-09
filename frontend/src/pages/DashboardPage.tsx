@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   CalendarDays,
@@ -13,6 +13,8 @@ import {
   Sparkles,
   TrendingUp,
   Check,
+  Shield,
+  Megaphone,
 } from 'lucide-react'
 
 import { useAuth } from '@/context/AuthContext'
@@ -20,12 +22,32 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { useTasks, useCreateTask, useUpdateTaskStatus } from '@/hooks/useTasks'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
 import { TaskFormModal } from '@/components/tasks/TaskFormModal'
+import { adminService } from '@/services/admin.service'
 import type { CreateTaskInput } from '@/types/database.types'
+
+const SUPER_ADMIN_EMAILS = [
+  'ronaldo22amador@gmail.com',
+  'marlon21ronaldo@gmail.com',
+]
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [modalVisible, setModalVisible] = useState(false)
+  const [publicSettings, setPublicSettings] = useState<{
+    global_banner_enabled?: boolean
+    global_banner_text?: string
+    global_banner_type?: string
+  }>({})
+
+  useEffect(() => {
+    adminService.getPublicSettings().then(setPublicSettings)
+  }, [])
+
+  const isSuperAdmin =
+    SUPER_ADMIN_EMAILS.includes(user?.email?.toLowerCase() || '') ||
+    user?.app_metadata?.role === 'super_admin' ||
+    user?.user_metadata?.role === 'super_admin'
 
   // Obtener nombre del usuario (prioriza override local o metadata)
   const localName = typeof window !== 'undefined' ? localStorage.getItem('agendapro_custom_display_name') : null
@@ -112,6 +134,24 @@ export default function DashboardPage() {
     <AppLayout pageTitle="Dashboard">
       <div className="flex flex-col gap-7 animate-fade-in pb-8">
 
+        {/* ── Banner Institucional Global (Configurado por el SuperAdmin) ── */}
+        {publicSettings.global_banner_enabled && (
+          <div
+            className={`alert text-xs sm:text-sm font-semibold shadow-sm border py-3 rounded-2xl ${
+              publicSettings.global_banner_type === 'warning'
+                ? 'alert-warning border-warning/30'
+                : publicSettings.global_banner_type === 'error'
+                ? 'alert-error border-error/30'
+                : publicSettings.global_banner_type === 'success'
+                ? 'alert-success border-success/30'
+                : 'alert-info border-info/30'
+            }`}
+          >
+            <Megaphone className="w-5 h-5 flex-shrink-0" />
+            <span>{publicSettings.global_banner_text}</span>
+          </div>
+        )}
+
         {/* ── 1. Banner de Bienvenida & Acciones Ejecutivas ────────── */}
         <div
           id="tour-welcome"
@@ -147,6 +187,17 @@ export default function DashboardPage() {
                   })}
                 </span>
               </div>
+
+              {isSuperAdmin && (
+                <Link
+                  to="/admin"
+                  className="btn bg-white/20 hover:bg-white/30 text-white border-white/20 rounded-2xl gap-2 font-bold shadow-md hover:scale-105 transition-all text-xs backdrop-blur-md"
+                  title="Acceso exclusivo al Centro de Control SuperAdmin"
+                >
+                  <Shield className="w-4 h-4 text-warning" />
+                  <span>Panel Admin</span>
+                </Link>
+              )}
 
               <button
                 type="button"

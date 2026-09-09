@@ -4,6 +4,13 @@ import {
   Grid2x2, Settings, X,
 } from 'lucide-react'
 import { useTasks, useTasksRealtime } from '@/hooks/useTasks'
+import { useAuth } from '@/context/AuthContext'
+import { Shield } from 'lucide-react'
+
+const SUPER_ADMIN_EMAILS = [
+  'ronaldo22amador@gmail.com',
+  'marlon21ronaldo@gmail.com',
+]
 
 interface SidebarProps {
   open: boolean
@@ -11,6 +18,12 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const { user } = useAuth()
+  const isSuperAdmin =
+    SUPER_ADMIN_EMAILS.includes(user?.email?.toLowerCase() || '') ||
+    user?.app_metadata?.role === 'super_admin' ||
+    user?.user_metadata?.role === 'super_admin'
+
   // Sincronización reactiva en tiempo real
   useTasksRealtime()
 
@@ -27,6 +40,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     { to: '/calendario', icon: CalendarDays,    label: 'Calendario',    end: false },
     { to: '/matriz',     icon: Grid2x2,         label: 'Matriz',        end: false },
     { to: '/config',     icon: Settings,        label: 'Configuración', end: false },
+    ...(isSuperAdmin ? [{ to: '/admin', icon: Shield, label: 'Panel Admin', end: false, badge: 'SUPER', badgeClass: 'badge-warning text-warning-content' }] : []),
   ]
 
   return (
@@ -50,9 +64,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-base-200">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-sm">
-              <CalendarDays className="w-4 h-4 text-white" />
-            </div>
+            <img src="/logo.png" alt="AgendaPro" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
             <span className="font-bold text-base tracking-tight text-base-content">AgendaPro</span>
           </div>
           <button
@@ -82,7 +94,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span className="flex-1">{label}</span>
                   {badge && (
-                    <span className="badge badge-xs badge-primary font-bold px-1.5 py-0.5 text-[10px] rounded-full shadow-xs">
+                    <span className={`badge badge-xs font-bold px-1.5 py-0.5 text-[10px] rounded-full shadow-xs ${'badgeClass' in navItems.find(n => n.to === to)! ? 'bg-primary text-primary-content font-extrabold' : 'badge-primary'}`}>
                       {badge}
                     </span>
                   )}
@@ -92,12 +104,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </ul>
         </nav>
 
-        {/* Footer del sidebar */}
-        <div className="px-3 py-3 border-t border-base-200">
-          <p className="text-xs text-base-content/40 text-center font-medium">
-            AgendaPro v1.0 · Fase 6
-          </p>
-        </div>
+
       </aside>
     </>
   )

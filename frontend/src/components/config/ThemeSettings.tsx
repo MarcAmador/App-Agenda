@@ -1,100 +1,78 @@
-import { Sun, Moon, Monitor, Check } from 'lucide-react'
-import { useTheme } from '@/context/ThemeContext'
+import { Check, Palette } from 'lucide-react'
+import { useTheme, DAISY_THEMES, type DaisyTheme } from '@/context/ThemeContext'
 import { useUpdatePreferences } from '@/hooks/usePreferences'
-
-type ThemeOption = 'light' | 'dark' | 'system'
-
-interface ThemeCardData {
-  value: ThemeOption
-  label: string
-  desc: string
-  icon: React.ElementType
-}
-
-const THEME_OPTIONS: ThemeCardData[] = [
-  {
-    value: 'light',
-    label: 'Modo Claro',
-    desc: 'Fondo luminoso, óptimo para entornos con luz natural.',
-    icon: Sun,
-  },
-  {
-    value: 'dark',
-    label: 'Modo Oscuro',
-    desc: 'Menor fatiga visual para jornadas extensas o nocturnas.',
-    icon: Moon,
-  },
-  {
-    value: 'system',
-    label: 'Tema del Sistema',
-    desc: 'Se adapta automáticamente a la configuración de tu sistema operativo.',
-    icon: Monitor,
-  },
-]
 
 export function ThemeSettings() {
   const { theme, setTheme } = useTheme()
   const updatePrefs = useUpdatePreferences()
 
-  const handleSelectTheme = (selected: ThemeOption) => {
+  const handleSelectTheme = (selected: DaisyTheme) => {
     setTheme(selected)
     updatePrefs.mutate({ theme: selected })
   }
 
   return (
     <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 flex flex-col gap-4">
-      <div>
-        <h3 className="text-sm font-bold text-base-content tracking-tight">
-          Apariencia Visual
-        </h3>
-        <p className="text-xs text-base-content/60 mt-0.5">
-          Personaliza la interfaz para trabajar cómodamente de día o de noche.
-        </p>
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+          <Palette className="w-4 h-4" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-base-content tracking-tight">
+            Tema Visual de la Interfaz
+          </h3>
+          <p className="text-xs text-base-content/60 mt-0.5">
+            Elige entre {DAISY_THEMES.length} temas DaisyUI — el cambio es instantáneo y se guarda automáticamente.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {THEME_OPTIONS.map(({ value, label, desc, icon: Icon }) => {
+      {/* Grid de temas */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {DAISY_THEMES.map(({ value, label, emoji }) => {
           const isSelected = theme === value
-
           return (
-            <div
+            <button
               key={value}
+              type="button"
               onClick={() => handleSelectTheme(value)}
+              data-theme={value}
               className={[
-                'p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 relative',
+                'relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border-2 transition-all duration-150 text-center group',
                 isSelected
-                  ? 'border-primary bg-primary/5 shadow-xs ring-2 ring-primary/20'
-                  : 'border-base-200 hover:border-base-300 bg-base-100/60',
+                  ? 'border-primary ring-2 ring-primary/25 shadow-md shadow-primary/15 scale-[1.03]'
+                  : 'border-base-300 hover:border-base-content/25 hover:scale-[1.02] hover:shadow-sm',
               ].join(' ')}
             >
-              {isSelected && (
-                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary text-primary-content flex items-center justify-center">
-                  <Check className="w-3 h-3 stroke-[3]" />
-                </div>
-              )}
-
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={[
-                    'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-                    isSelected
-                      ? 'bg-primary text-primary-content'
-                      : 'bg-base-200 text-base-content/70',
-                  ].join(' ')}
-                >
-                  <Icon className="w-4 h-4" />
-                </div>
-                <h4 className="font-semibold text-xs text-base-content">
-                  {label}
-                </h4>
+              {/* Swatch de colores reales del tema */}
+              <div className="flex gap-0.5">
+                <span className="w-3 h-3 rounded-full bg-primary block" />
+                <span className="w-3 h-3 rounded-full bg-secondary block" />
+                <span className="w-3 h-3 rounded-full bg-accent block" />
               </div>
 
-              <p className="text-[11px] text-base-content/60 leading-relaxed">
-                {desc}
-              </p>
-            </div>
+              <span className="text-base leading-none">{emoji}</span>
+              <span className="text-[10px] font-semibold text-base-content leading-tight truncate w-full">
+                {label}
+              </span>
+
+              {isSelected && (
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary text-primary-content flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                </span>
+              )}
+            </button>
           )
         })}
+      </div>
+
+      {/* Tema activo */}
+      <div className="flex items-center gap-2 text-xs text-base-content/60 border-t border-base-200 pt-3">
+        <span className="font-medium text-base-content/80">Tema activo:</span>
+        <span className="badge badge-primary badge-sm font-semibold capitalize">
+          {DAISY_THEMES.find(t => t.value === theme)?.emoji}{' '}
+          {DAISY_THEMES.find(t => t.value === theme)?.label}
+        </span>
       </div>
     </div>
   )

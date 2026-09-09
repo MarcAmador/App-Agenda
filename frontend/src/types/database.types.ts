@@ -65,7 +65,7 @@ export interface UserPreferences {
   phone_number: string | null
   telegram_chat_id: string | null
   reminder_lead_time_minutes: number
-  theme: 'light' | 'dark' | 'system'
+  theme: string
   created_at: string
   updated_at: string
 }

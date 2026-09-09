@@ -8,6 +8,7 @@ import { authRouter } from './routes/auth.routes'
 import { tasksRouter } from './routes/tasks.routes'
 import { preferencesRouter } from './routes/preferences.routes'
 import { remindersRouter } from './routes/reminders.routes'
+import { adminRouter } from './routes/admin.routes'
 
 const app = express()
 
@@ -57,6 +58,7 @@ app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/tasks', tasksRouter)
 app.use('/api/v1/preferences', preferencesRouter)
 app.use('/api/v1/reminders', remindersRouter)
+app.use('/api/v1/admin', adminRouter)
 
 
 // ─── Manejo de rutas no encontradas ─────────────────────────────────────────
