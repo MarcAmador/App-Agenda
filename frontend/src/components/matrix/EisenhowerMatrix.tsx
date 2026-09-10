@@ -73,7 +73,7 @@ export function EisenhowerMatrix({
   return (
     <div className="flex flex-col gap-5">
       {/* ── Barra de Estadísticas y Distribución ─────────────────── */}
-      <div className="card bg-base-100 border border-base-200 shadow-sm p-4.5 rounded-2xl">
+      <div id="tour-matrix-distribution" className="card bg-base-100 border border-base-200 shadow-sm p-4.5 rounded-2xl">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -159,7 +159,7 @@ export function EisenhowerMatrix({
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
+        <div id="tour-matrix-quadrants" className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
           {/* Q1: Urgente e Importante */}
           <MatrixQuadrant
             priority="urgente_importante"

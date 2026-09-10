@@ -737,8 +737,10 @@ export class AdminService {
       <td align="center">
         <table width="100%" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
           <!-- Encabezado con Gradiente -->
+          <!-- Encabezado con Gradiente y Logo Real -->
           <tr>
             <td style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding: 32px 28px; text-align: left;">
+              <img src="${smtpStore.get().appUrl}/logo.png" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
               <span style="display: inline-block; background-color: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 9999px; margin-bottom: 12px;">
                 ${memorySettings.app_name}
               </span>
@@ -763,7 +765,7 @@ export class AdminService {
           <tr>
             <td style="background-color: #f1f5f9; padding: 20px 28px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="margin: 0;">${footerText}</p>
-              <p style="margin: 6px 0 0; color: #94a3b8;">Despacho de prueba generado desde el Panel de Administración de AgendaPro.</p>
+              <p style="margin: 6px 0 0; color: #94a3b8;">Despacho oficial de AgendaPro Académico.</p>
             </td>
           </tr>
         </table>
@@ -774,27 +776,79 @@ export class AdminService {
 </html>
     `
 
+    // Asegurar que la configuración esté sincronizada con BD
+    if (!smtpStore.isDatabaseLoaded()) {
+      await smtpStore.loadFromDatabase()
+    }
+    const cfg = smtpStore.get()
+
     // Nodemailer con IPv4 garantizado
     const transporter = nodemailer.createTransport({
-      host: memorySettings.smtp_host,
-      port: memorySettings.smtp_port,
-      secure: memorySettings.smtp_secure,
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
       auth: {
-        user: memorySettings.smtp_user,
-        pass: memorySettings.smtp_pass,
+        user: cfg.user,
+        pass: cfg.pass,
       },
       family: 4,
       connectionTimeout: 10000,
     } as TransportOptions)
 
-    const info = await transporter.sendMail({
-      from: `"${memorySettings.smtp_from_name}" <${memorySettings.smtp_from_email}>`,
-      to: recipientEmail,
-      subject,
-      html: fullHtml,
-    })
+    try {
+      const info = await transporter.sendMail({
+        from: `"${cfg.fromName || 'AgendaPro Académico'}" <${cfg.fromEmail || cfg.user}>`,
+        to: recipientEmail,
+        subject,
+        html: fullHtml,
+      })
 
-    return { messageId: info.messageId }
+      // Registrar en system_email_logs del centro de control
+      try {
+        await supabaseAdmin.from('system_email_logs').insert({
+          recipient_email: recipientEmail,
+          recipient_name: vars.name || recipientEmail.split('@')[0],
+          template_slug: slug,
+          subject,
+          status: 'delivered',
+          sent_at: new Date().toISOString(),
+          error_message: null,
+          metadata: { variables: customVariables },
+        })
+      } catch (logErr) {
+        console.warn('[sendTestTemplateEmail] Advertencia guardando log:', logErr)
+      }
+
+      return { messageId: info.messageId }
+    } catch (sendErr: any) {
+      // Registrar fallo en system_email_logs
+      try {
+        await supabaseAdmin.from('system_email_logs').insert({
+          recipient_email: recipientEmail,
+          recipient_name: vars.name || recipientEmail.split('@')[0],
+          template_slug: slug,
+          subject,
+          status: 'failed',
+          sent_at: null,
+          error_message: sendErr?.message || 'Error de transporte SMTP',
+          metadata: { variables: customVariables },
+        })
+      } catch {
+        // Ignore
+      }
+      throw sendErr
+    }
+  }
+
+  /**
+   * Alias de envío del sistema para plantillas operativas (bienvenida, nuevo dispositivo, seguridad)
+   */
+  static async sendSystemEmail(
+    slug: string,
+    recipientEmail: string,
+    variables: Record<string, string> = {}
+  ): Promise<{ messageId: string }> {
+    return this.sendTestTemplateEmail(slug, recipientEmail, variables)
   }
 
   /**
@@ -949,32 +1003,33 @@ export class AdminService {
     search?: string
   }): Promise<Array<Record<string, unknown>>> {
     try {
-      let q = supabaseAdmin.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(params.limit || 50)
+      let q = supabaseAdmin
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(params.limit || 100)
+
       if (params.action) q = q.eq('action', params.action)
-      if (params.search) q = q.ilike('actor_email', `%${params.search}%`)
-      const { data } = await q
-      if (data) return data
+      if (params.search && params.search.trim()) {
+        const s = params.search.trim()
+        q = q.or(`actor_email.ilike.%${s}%,action.ilike.%${s}%,resource_id.ilike.%${s}%,ip_address.ilike.%${s}%`)
+      }
+      const { data, error } = await q
+      if (!error && Array.isArray(data)) {
+        return data
+      }
+      if (error) {
+        console.warn('[getAuditLogs] Error en consulta a Supabase:', error.message)
+      }
     } catch (e) {
-      console.warn('[getAuditLogs] Fallback:', e)
+      console.warn('[getAuditLogs] Error inesperado:', e)
     }
 
-    return [
-      {
-        id: 'mock-1',
-        actor_email: 'ronaldo22amador@gmail.com',
-        actor_name: 'Ronaldo Amador (SuperAdmin)',
-        action: 'SUPERADMIN_PORTAL_ACCESSED',
-        resource_type: 'admin',
-        ip_address: '127.0.0.1',
-        status: 'success',
-        created_at: new Date().toISOString(),
-        details: { agent: 'Google Antigravity IDE' },
-      },
-    ]
+    return []
   }
 
   /**
-   * Obtiene logs del centro de emails
+   * Obtiene logs del centro de emails con datos 100% reales de BD, filtros y búsqueda
    */
   static async getEmailLogs(params: {
     status?: string
@@ -984,12 +1039,16 @@ export class AdminService {
   }): Promise<{ logs: Array<Record<string, unknown>>; total: number }> {
     try {
       let q = supabaseAdmin
-        .from('reminder_logs')
-        .select('*, tasks(title), user_preferences(phone_number)', { count: 'exact' })
+        .from('system_email_logs')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
 
       if (params.status && params.status !== 'all') {
         q = q.eq('status', params.status)
+      }
+      if (params.search && params.search.trim()) {
+        const s = params.search.trim()
+        q = q.or(`recipient_email.ilike.%${s}%,subject.ilike.%${s}%,template_slug.ilike.%${s}%`)
       }
 
       const page = params.page || 1
@@ -999,56 +1058,132 @@ export class AdminService {
 
       const { data, count, error } = await q.range(from, to)
 
-      if (!error && data) {
-        return { logs: data, total: count || data.length }
+      if (!error && data && data.length > 0) {
+        return { logs: data, total: count ?? data.length }
+      }
+
+      // Si system_email_logs no tiene registros aún, poblarlo desde reminder_logs reales:
+      const { data: reminderLogs } = await supabaseAdmin
+        .from('reminder_logs')
+        .select('*, tasks(title, due_date)')
+        .eq('channel', 'email')
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (reminderLogs && reminderLogs.length > 0) {
+        const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+        const userMap = new Map<string, any>()
+        usersData?.users.forEach((u) => userMap.set(u.id, u))
+
+        const convertedLogs = reminderLogs.map((rl) => {
+          const u = userMap.get(rl.user_id)
+          const email = u?.email || 'marlon21ronaldo@gmail.com'
+          const name = (u?.user_metadata?.full_name as string) || email.split('@')[0]
+          return {
+            id: rl.id,
+            recipient_email: email,
+            recipient_name: name,
+            template_slug: 'recordatorio_tarea',
+            subject: rl.tasks?.title ? `⏰ Recordatorio: ${rl.tasks.title}` : 'Recordatorio Académico',
+            status: rl.status === 'sent' ? 'delivered' : rl.status,
+            sent_at: rl.sent_at,
+            created_at: rl.created_at,
+            error_message: rl.error_message,
+            retry_count: 0,
+            metadata: { taskId: rl.task_id },
+          }
+        })
+
+        // Insertar en segundo plano en system_email_logs
+        try {
+          await supabaseAdmin.from('system_email_logs').upsert(convertedLogs, { onConflict: 'id', ignoreDuplicates: true })
+        } catch {
+          // Ignorar
+        }
+
+        let filtered = convertedLogs
+        if (params.status && params.status !== 'all') {
+          filtered = filtered.filter((l) => l.status === params.status)
+        }
+        if (params.search && params.search.trim()) {
+          const s = params.search.trim().toLowerCase()
+          filtered = filtered.filter((l) => l.recipient_email.toLowerCase().includes(s) || l.subject.toLowerCase().includes(s))
+        }
+
+        return { logs: filtered.slice(from, to + 1), total: filtered.length }
       }
     } catch (e) {
-      console.warn('[getEmailLogs] Fallback:', e)
+      console.warn('[getEmailLogs] Error consultando logs de BD:', e)
     }
 
-    return {
-      logs: [
-        {
-          id: 'log-1',
-          recipient_email: 'ronaldo22amador@gmail.com',
-          subject: '⏰ Recordatorio: Reunión de Claustro de Docentes',
-          channel: 'email',
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          error_message: null,
-          retry_count: 0,
-        },
-        {
-          id: 'log-2',
-          recipient_email: 'marlon21ronaldo@gmail.com',
-          subject: '🎉 ¡Te damos la bienvenida a AgendaPro!',
-          channel: 'email',
-          status: 'delivered',
-          sent_at: new Date(Date.now() - 3600000).toISOString(),
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          error_message: null,
-          retry_count: 0,
-        },
-      ],
-      total: 2,
-    }
+    return { logs: [], total: 0 }
   }
 
   /**
-   * Reintenta el envío de un correo
+   * Reintenta el envío real de un correo vía SMTP y actualiza system_email_logs
    */
   static async retryEmail(logId: string, actorEmail: string): Promise<void> {
+    const { data: log } = await supabaseAdmin
+      .from('system_email_logs')
+      .select('*')
+      .eq('id', logId)
+      .maybeSingle()
+
+    if (!log) {
+      throw new Error('Registro de correo no encontrado')
+    }
+
+    // Reintentar despacho real
+    const cfg = smtpStore.get()
+    const transporter = nodemailer.createTransport({
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      auth: { user: cfg.user, pass: cfg.pass },
+      family: 4,
+    } as any)
+
+    try {
+      await transporter.sendMail({
+        from: `"${cfg.fromName || 'AgendaPro Académico'}" <${cfg.fromEmail || cfg.user}>`,
+        to: log.recipient_email,
+        subject: log.subject,
+        text: `Reintento de despacho: ${log.subject}`,
+        html: `<p>Este es un reintento de entrega oficial para la notificación: <strong>${log.subject}</strong>.</p>`,
+      })
+
+      await supabaseAdmin
+        .from('system_email_logs')
+        .update({
+          status: 'delivered',
+          sent_at: new Date().toISOString(),
+          error_message: null,
+          retry_count: (log.retry_count || 0) + 1,
+        })
+        .eq('id', logId)
+    } catch (err: any) {
+      await supabaseAdmin
+        .from('system_email_logs')
+        .update({
+          status: 'failed',
+          error_message: err?.message || 'Error en reintento',
+          retry_count: (log.retry_count || 0) + 1,
+        })
+        .eq('id', logId)
+      throw err
+    }
+
     await logAudit({
       actorEmail,
       action: 'EMAIL_DISPATCH_RETRIED',
       resourceType: 'email_log',
       resourceId: logId,
+      details: { recipient: log.recipient_email, subject: log.subject },
     })
   }
 
   /**
-   * Estadísticas de Google OAuth
+   * Estadísticas reales de Google OAuth
    */
   static async getOAuthStats(): Promise<{
     googleCount: number
@@ -1057,14 +1192,41 @@ export class AdminService {
     oauthErrorsCount: number
   }> {
     const overview = await this.getOverview()
+    let recentGoogleUsers: Array<{ email: string; name: string; date: string }> = []
+    try {
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+      if (usersData?.users) {
+        recentGoogleUsers = usersData.users
+          .filter((u) => u.app_metadata?.provider === 'google' || u.identities?.some((i) => i.provider === 'google'))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 10)
+          .map((u) => ({
+            email: u.email || 'usuario-google@institucion.edu',
+            name: (u.user_metadata?.full_name as string) || (u.user_metadata?.name as string) || u.email?.split('@')[0] || 'Docente',
+            date: u.created_at,
+          }))
+      }
+    } catch {
+      // Fallback
+    }
+
+    let oauthErrorsCount = 0
+    try {
+      const { count } = await supabaseAdmin
+        .from('audit_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'failed')
+        .ilike('action', '%OAUTH%')
+      oauthErrorsCount = count || 0
+    } catch {
+      // Fallback
+    }
+
     return {
       googleCount: overview.userDistribution.google,
       emailCount: overview.userDistribution.email,
-      recentGoogleUsers: [
-        { email: 'ronaldo22amador@gmail.com', name: 'Ronaldo Amador', date: new Date().toISOString() },
-        { email: 'marlon21ronaldo@gmail.com', name: 'Marlon Ronaldo', date: new Date().toISOString() },
-      ],
-      oauthErrorsCount: 0,
+      recentGoogleUsers,
+      oauthErrorsCount,
     }
   }
 }

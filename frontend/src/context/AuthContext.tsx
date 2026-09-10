@@ -8,6 +8,7 @@ import {
 } from 'react'
 import type { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabaseClient'
+import { authService } from '@/services/auth.service'
 
 // ─── Tipos del Context ────────────────────────────────────────────────────────
 
@@ -82,6 +83,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Registrar inicio de sesión y auditar dispositivo
+  useEffect(() => {
+    if (session?.access_token && session?.user?.id) {
+      const storageKey = `agendapro_dev_rec_${session.user.id}`
+      const alreadyRecorded = sessionStorage.getItem(storageKey)
+      if (!alreadyRecorded) {
+        sessionStorage.setItem(storageKey, 'true')
+        authService.recordLogin(session.access_token)
+      }
+    }
+  }, [session?.access_token, session?.user?.id])
+
   /** Inicia el flujo OAuth de Google redirigiendo al proveedor de identidad */
   const signInWithGoogle = useCallback(async () => {
     setError(null)
@@ -91,7 +104,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
           access_type: 'offline',
-          prompt: 'consent',
+          prompt: 'select_account',
         },
       },
     })

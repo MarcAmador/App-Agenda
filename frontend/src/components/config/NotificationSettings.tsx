@@ -302,9 +302,7 @@ export function NotificationSettings() {
               <span className="hidden sm:inline">WhatsApp</span>
             </button>
           </div>
-          <span className="text-[10px] text-base-content/40 mt-1">
-            Ejemplo: +502 (Guatemala), +52 (México), +1 (EE.UU.). Formato internacional.
-          </span>
+
         </div>
 
         {/* Input Telegram Chat ID */}
@@ -331,7 +329,7 @@ export function NotificationSettings() {
         </div>
 
         {/* Selector MultiSelect de Tiempos de Anticipación */}
-        <div className="form-control md:col-span-2">
+        <div id="tour-lead-times-multiselect" className="form-control md:col-span-2">
           <label className="label py-1 text-[11px] font-semibold text-base-content/70 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-primary" />

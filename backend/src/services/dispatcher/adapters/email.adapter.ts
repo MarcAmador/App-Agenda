@@ -102,6 +102,8 @@ export class EmailAdapter implements ChannelAdapter {
    * El transporter se cachea para eficiencia, y se resetea automáticamente cuando
    * cambia la configuración desde el panel SuperAdmin.
    */
+  private cachedUser: string = ''
+
   private async getTransporter(): Promise<{ transporter: Transporter; isEthereal: boolean }> {
     if (!smtpStore.isDatabaseLoaded()) {
       await smtpStore.loadFromDatabase()
@@ -110,7 +112,8 @@ export class EmailAdapter implements ChannelAdapter {
 
     // Si hay credenciales SMTP configuradas (desde BD o .env vía smtpStore)
     if (smtpStore.hasCredentials()) {
-      if (!this.cachedTransporter) {
+      if (!this.cachedTransporter || this.cachedUser !== cfg.user) {
+        this.cachedUser = cfg.user
         this.cachedTransporter = nodemailer.createTransport({
           host: cfg.host,
           port: cfg.port,
@@ -121,7 +124,7 @@ export class EmailAdapter implements ChannelAdapter {
             pass: cfg.pass,
           },
         } as any)
-        console.log(`[EmailAdapter] 🔌 Transporter SMTP creado → ${cfg.user}@${cfg.host}:${cfg.port}`)
+        console.log(`[EmailAdapter] 🔌 Transporter SMTP creado/actualizado → ${cfg.user}@${cfg.host}:${cfg.port}`)
       }
       return { transporter: this.cachedTransporter, isEthereal: false }
     }
@@ -192,10 +195,7 @@ ${appUrl}/tareas
             <td style="background: linear-gradient(135deg, #4f46e5 0%, #0284c7 50%, #06b6d4 100%); padding: 36px 32px; text-align: center;">
               <table width="100%" border="0" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center">
-                    <div style="display: inline-block; width: 48px; height: 48px; background-color: rgba(255, 255, 255, 0.2); border-radius: 14px; line-height: 48px; text-align: center; margin-bottom: 12px;">
-                      <span style="font-size: 24px;">📅</span>
-                    </div>
+                    <img src="${appUrl}/logo.png" alt="AgendaPro" width="52" height="52" style="display: block; border-radius: 14px; margin: 0 auto 12px auto; box-shadow: 0 4px 14px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
                     <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: -0.03em;">AgendaPro</h1>
                     <p style="margin: 6px 0 0 0; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 500;">Gestión Académica & Productividad</p>
                   </td>

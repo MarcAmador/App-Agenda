@@ -67,7 +67,7 @@ export function TaskCalendar({
   return (
     <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl overflow-hidden">
       {/* ── Barra de Navegación del Calendario ────────────────────── */}
-      <div className="p-4 border-b border-base-200 flex items-center justify-between flex-wrap gap-3 bg-base-100">
+      <div id="tour-calendar-controls" className="p-4 border-b border-base-200 flex items-center justify-between flex-wrap gap-3 bg-base-100">
         {/* Título de Mes/Año y Botón Hoy */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
@@ -125,7 +125,7 @@ export function TaskCalendar({
           </div>
 
           {/* Flechas Anterior / Siguiente */}
-          <div className="join border border-base-200 rounded-xl">
+          <div className="join border border-base-300 rounded-xl overflow-hidden">
             <button
               type="button"
               onClick={handlePrev}
@@ -147,27 +147,29 @@ export function TaskCalendar({
       </div>
 
       {/* ── Contenido de la Vista Activa ─────────────────────────── */}
-      {loading ? (
-        <div className="p-12 flex flex-col items-center justify-center gap-3">
-          <span className="loading loading-spinner loading-md text-primary" />
-          <span className="text-xs text-base-content/50">Cargando calendario...</span>
-        </div>
-      ) : subView === 'mes' ? (
-        <CalendarMonthView
-          currentDate={currentDate}
-          tasks={tasks}
-          onEdit={onEdit}
-          onCreateForDate={onCreateForDate}
-        />
-      ) : (
-        <CalendarWeekView
-          currentDate={currentDate}
-          tasks={tasks}
-          onEdit={onEdit}
-          onStatusChange={onStatusChange}
-          onCreateForDate={onCreateForDate}
-        />
-      )}
+      <div id="tour-calendar-grid">
+        {loading ? (
+          <div className="p-12 flex flex-col items-center justify-center gap-3">
+            <span className="loading loading-spinner loading-md text-primary" />
+            <span className="text-xs text-base-content/50">Cargando calendario...</span>
+          </div>
+        ) : subView === 'mes' ? (
+          <CalendarMonthView
+            currentDate={currentDate}
+            tasks={tasks}
+            onEdit={onEdit}
+            onCreateForDate={onCreateForDate}
+          />
+        ) : (
+          <CalendarWeekView
+            currentDate={currentDate}
+            tasks={tasks}
+            onEdit={onEdit}
+            onStatusChange={onStatusChange}
+            onCreateForDate={onCreateForDate}
+          />
+        )}
+      </div>
     </div>
   )
 }

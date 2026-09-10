@@ -44,15 +44,19 @@ export function CalendarMonthView({
   let firstDayIndex = firstDayOfMonth.getDay() - 1
   if (firstDayIndex === -1) firstDayIndex = 6
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   // Días del mes anterior
   for (let i = firstDayIndex - 1; i >= 0; i--) {
     const dayNum = prevMonthLastDay - i
-    const d = new Date(year, month - 1, dayNum)
-    const dateStr = d.toISOString().split('T')[0]
+    const prevYear = month === 0 ? year - 1 : year
+    const prevMonth = month === 0 ? 12 : month
+    const mm = String(prevMonth).padStart(2, '0')
+    const dd = String(dayNum).padStart(2, '0')
+    const dateStr = `${prevYear}-${mm}-${dd}`
     days.push({
-      date: d,
+      date: new Date(prevYear, prevMonth - 1, dayNum),
       dateStr,
       dayNumber: dayNum,
       isCurrentMonth: false,

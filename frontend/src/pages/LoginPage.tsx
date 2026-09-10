@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { useLocation, Navigate } from 'react-router-dom'
+import { useLocation, useNavigate, Navigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabaseClient'
+import { authService } from '@/services/auth.service'
 import {
   Chrome,
   BookOpen,
@@ -15,12 +17,16 @@ import {
   UserPlus,
   AlertCircle,
   CheckCircle2,
+  KeyRound,
+  ArrowLeft,
 } from 'lucide-react'
 
 /**
- * Página de autenticación con doble modalidad:
+ * Página de autenticación con múltiple modalidad:
  * 1. Google OAuth institucional
  * 2. Registro e inicio de sesión con Correo y Contraseña Hasheada (Supabase Auth)
+ * 3. Recuperación de contraseña (exclusiva para cuentas con correo)
+ * 4. Actualización / Restablecimiento seguro de nueva contraseña
  */
 export default function LoginPage() {
   const {
@@ -33,9 +39,10 @@ export default function LoginPage() {
   } = useAuth()
 
   const location = useLocation()
+  const navigate = useNavigate()
   const from = (location.state as { from?: Location })?.from?.pathname ?? '/'
 
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -45,8 +52,17 @@ export default function LoginPage() {
   const [localError, setLocalError] = useState<string | null>(null)
   const [registerSuccessMsg, setRegisterSuccessMsg] = useState<string | null>(null)
 
-  // Si ya hay sesión activa, redirigir al destino original
-  if (!authLoading && isAuthenticated) {
+  // Detectar si la URL trae ?mode=reset-password o ?mode=forgot-password
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const urlMode = params.get('mode')
+    if (urlMode === 'reset-password' || urlMode === 'forgot-password') {
+      setMode(urlMode)
+    }
+  }, [location.search])
+
+  // Si ya hay sesión activa y NO estamos restableciendo contraseña, redirigir al destino original
+  if (!authLoading && isAuthenticated && mode !== 'reset-password') {
     return <Navigate to={from} replace />
   }
 
@@ -61,6 +77,54 @@ export default function LoginPage() {
     setLocalError(null)
     setRegisterSuccessMsg(null)
 
+    // ─── Modo: Olvido de contraseña ─────────────────────────────────────────
+    if (mode === 'forgot-password') {
+      if (!email.trim()) {
+        setLocalError('Por favor ingresa tu correo electrónico.')
+        return
+      }
+      setFormLoading(true)
+      try {
+        const res = await authService.requestPasswordReset(email)
+        setRegisterSuccessMsg(res.message)
+      } catch (err: any) {
+        setLocalError(err.message || 'Error al solicitar recuperación.')
+      } finally {
+        setFormLoading(false)
+      }
+      return
+    }
+
+    // ─── Modo: Restablecimiento de nueva contraseña ─────────────────────────
+    if (mode === 'reset-password') {
+      if (password.length < 6) {
+        setLocalError('La nueva contraseña debe contener al menos 6 caracteres.')
+        return
+      }
+      if (password !== confirmPassword) {
+        setLocalError('Las contraseñas no coinciden. Verifícalas cuidadosamente.')
+        return
+      }
+      setFormLoading(true)
+      try {
+        const { error } = await supabase.auth.updateUser({ password })
+        if (error) {
+          setLocalError(error.message)
+        } else {
+          setRegisterSuccessMsg('¡Contraseña actualizada exitosamente! Entrando a tu agenda...')
+          setTimeout(() => {
+            navigate('/', { replace: true })
+          }, 1500)
+        }
+      } catch (err: any) {
+        setLocalError(err.message || 'Error actualizando la contraseña.')
+      } finally {
+        setFormLoading(false)
+      }
+      return
+    }
+
+    // ─── Modo: Login / Registro tradicional ────────────────────────────────
     if (!email.trim() || !password) {
       setLocalError('Por favor completa todos los campos requeridos.')
       return
@@ -181,47 +245,57 @@ export default function LoginPage() {
 
           {/* Título dinámico */}
           <div className="mb-6 text-center sm:text-left">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-base-content tracking-tight">
-              {mode === 'login' ? 'Bienvenido de nuevo' : 'Crea tu cuenta'}
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-base-content tracking-tight flex items-center gap-2">
+              {mode === 'forgot-password' && <KeyRound className="w-7 h-7 text-primary" />}
+              {mode === 'reset-password' && <Lock className="w-7 h-7 text-primary" />}
+              {mode === 'login' && 'Bienvenido de nuevo'}
+              {mode === 'register' && 'Crea tu cuenta'}
+              {mode === 'forgot-password' && '¿Olvidaste tu contraseña?'}
+              {mode === 'reset-password' && 'Restablece tu contraseña'}
             </h2>
             <p className="text-sm text-base-content/60 mt-1">
-              {mode === 'login'
-                ? 'Ingresa tus credenciales para acceder a tus tareas y agenda.'
-                : 'Empieza a organizar tus actividades académicas en minutos.'}
+              {mode === 'login' && 'Ingresa tus credenciales para acceder a tus tareas y agenda.'}
+              {mode === 'register' && 'Empieza a organizar tus actividades académicas en minutos.'}
+              {mode === 'forgot-password' &&
+                'Ingresa tu correo institucional. Si te registraste con correo, te enviaremos un enlace seguro de recuperación.'}
+              {mode === 'reset-password' &&
+                'Ingresa tu nueva clave de acceso para continuar organizando tus actividades.'}
             </p>
           </div>
 
-          {/* Selector de Pestañas DaisyUI (Login vs Registro) */}
-          <div className="tabs tabs-boxed bg-base-200/70 p-1 rounded-2xl mb-6 grid grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('login')
-                setLocalError(null)
-                setRegisterSuccessMsg(null)
-              }}
-              className={`tab text-xs font-bold rounded-xl transition-all ${
-                mode === 'login' ? 'tab-active bg-base-100 text-base-content shadow-xs' : 'text-base-content/70'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5 mr-1.5" />
-              Iniciar Sesión
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode('register')
-                setLocalError(null)
-                setRegisterSuccessMsg(null)
-              }}
-              className={`tab text-xs font-bold rounded-xl transition-all ${
-                mode === 'register' ? 'tab-active bg-base-100 text-base-content shadow-xs' : 'text-base-content/70'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-              Registrarse
-            </button>
-          </div>
+          {/* Selector de Pestañas DaisyUI (Solo visible en Login o Registro) */}
+          {(mode === 'login' || mode === 'register') && (
+            <div className="tabs tabs-boxed bg-base-200/70 p-1 rounded-2xl mb-6 grid grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login')
+                  setLocalError(null)
+                  setRegisterSuccessMsg(null)
+                }}
+                className={`tab text-xs font-bold rounded-xl transition-all ${
+                  mode === 'login' ? 'tab-active bg-base-100 text-base-content shadow-xs' : 'text-base-content/70'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5 mr-1.5" />
+                Iniciar Sesión
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('register')
+                  setLocalError(null)
+                  setRegisterSuccessMsg(null)
+                }}
+                className={`tab text-xs font-bold rounded-xl transition-all ${
+                  mode === 'register' ? 'tab-active bg-base-100 text-base-content shadow-xs' : 'text-base-content/70'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                Registrarse
+              </button>
+            </div>
+          )}
 
           {/* Mensajes de Alerta */}
           {(localError || authError) && (
@@ -238,28 +312,33 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Botón de Google OAuth */}
-          <button
-            type="button"
-            onClick={signInWithGoogle}
-            disabled={authLoading || formLoading}
-            className="btn btn-outline w-full gap-2.5 h-11 text-xs font-bold border-base-300 hover:bg-base-200 hover:border-base-300 transition-all rounded-xl shadow-xs"
-          >
-            {authLoading ? (
-              <span className="loading loading-spinner loading-xs" />
-            ) : (
-              <Chrome className="w-4 h-4 text-primary" />
-            )}
-            Continuar con Google Institucional
-          </button>
+          {/* Botón de Google OAuth (Solo en login/register) */}
+          {(mode === 'login' || mode === 'register') && (
+            <>
+              <button
+                type="button"
+                onClick={signInWithGoogle}
+                disabled={authLoading || formLoading}
+                className="btn btn-outline w-full gap-2.5 h-11 text-xs font-bold border-base-300 hover:bg-base-200 hover:border-base-300 transition-all rounded-xl shadow-xs"
+              >
+                {authLoading ? (
+                  <span className="loading loading-spinner loading-xs" />
+                ) : (
+                  <Chrome className="w-4 h-4 text-primary" />
+                )}
+                Continuar con Google Institucional
+              </button>
 
-          {/* Divisor DaisyUI */}
-          <div className="divider text-[11px] uppercase tracking-wider text-base-content/40 font-bold my-5">
-            o con correo y contraseña
-          </div>
+              {/* Divisor DaisyUI */}
+              <div className="divider text-[11px] uppercase tracking-wider text-base-content/40 font-bold my-5">
+                o con correo y contraseña
+              </div>
+            </>
+          )}
 
-          {/* Formulario de Correo & Contraseña */}
+          {/* ── Formulario Dinámico Según el Modo ──────────────────────── */}
           <form onSubmit={handleSubmit} className="space-y-3.5">
+            {/* Campo: Nombre Completo (solo en registro) */}
             {mode === 'register' && (
               <div className="form-control">
                 <label className="label py-1">
@@ -279,57 +358,83 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div className="form-control">
-              <label className="label py-1">
-                <span className="label-text font-bold text-xs">Correo Electrónico:</span>
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-base-content/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  placeholder="docente@institucion.edu"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input input-bordered input-sm w-full pl-9 rounded-xl text-xs font-medium"
-                />
-              </div>
-            </div>
-
-            <div className="form-control">
-              <label className="label py-1">
-                <span className="label-text font-bold text-xs">Contraseña:</span>
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-base-content/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input input-bordered input-sm w-full pl-9 pr-9 rounded-xl text-xs font-medium"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="btn btn-ghost btn-xs btn-circle absolute right-1.5 top-1/2 -translate-y-1/2 text-base-content/50"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-              {mode === 'register' && (
-                <span className="text-[10px] text-base-content/50 mt-1">
-                  Mínimo 6 caracteres. Se almacenará encriptada y hasheada de forma segura.
-                </span>
-              )}
-            </div>
-
-            {mode === 'register' && (
+            {/* Campo: Correo Electrónico (login, registro y forgot-password) */}
+            {mode !== 'reset-password' && (
               <div className="form-control">
                 <label className="label py-1">
-                  <span className="label-text font-bold text-xs">Confirmar Contraseña:</span>
+                  <span className="label-text font-bold text-xs">Correo Electrónico:</span>
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-base-content/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="docente@institucion.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input input-bordered input-sm w-full pl-9 rounded-xl text-xs font-medium"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Campo: Contraseña (login, register y reset-password) */}
+            {mode !== 'forgot-password' && (
+              <div className="form-control">
+                <div className="flex items-center justify-between">
+                  <label className="label py-1">
+                    <span className="label-text font-bold text-xs">
+                      {mode === 'reset-password' ? 'Nueva Contraseña:' : 'Contraseña:'}
+                    </span>
+                  </label>
+                  {mode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('forgot-password')
+                        setLocalError(null)
+                        setRegisterSuccessMsg(null)
+                      }}
+                      className="text-[11px] text-primary hover:underline font-semibold"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-base-content/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input input-bordered input-sm w-full pl-9 pr-9 rounded-xl text-xs font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="btn btn-ghost btn-xs btn-circle absolute right-1.5 top-1/2 -translate-y-1/2 text-base-content/50"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                {(mode === 'register' || mode === 'reset-password') && (
+                  <span className="text-[10px] text-base-content/50 mt-1">
+                    Mínimo 6 caracteres. Se almacenará encriptada y hasheada de forma segura.
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Campo: Confirmar Contraseña (register y reset-password) */}
+            {(mode === 'register' || mode === 'reset-password') && (
+              <div className="form-control">
+                <label className="label py-1">
+                  <span className="label-text font-bold text-xs">
+                    {mode === 'reset-password' ? 'Confirmar Nueva Contraseña:' : 'Confirmar Contraseña:'}
+                  </span>
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-base-content/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -357,10 +462,20 @@ export default function LoginPage() {
                   <LogIn className="w-4 h-4" />
                   <span>Iniciar Sesión</span>
                 </>
-              ) : (
+              ) : mode === 'register' ? (
                 <>
                   <UserPlus className="w-4 h-4" />
                   <span>Registrarme con Correo</span>
+                </>
+              ) : mode === 'forgot-password' ? (
+                <>
+                  <KeyRound className="w-4 h-4" />
+                  <span>Enviar Enlace de Recuperación</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Guardar Nueva Contraseña</span>
                 </>
               )}
             </button>
@@ -368,7 +483,20 @@ export default function LoginPage() {
 
           {/* Selector inferior alternativo */}
           <div className="mt-6 text-center text-xs text-base-content/70">
-            {mode === 'login' ? (
+            {mode === 'forgot-password' || mode === 'reset-password' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login')
+                  setLocalError(null)
+                  setRegisterSuccessMsg(null)
+                }}
+                className="inline-flex items-center gap-1.5 text-primary font-bold hover:underline"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Volver a Iniciar Sesión
+              </button>
+            ) : mode === 'login' ? (
               <p>
                 ¿Aún no tienes cuenta?{' '}
                 <button
@@ -405,6 +533,7 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
     </div>
   )
 }

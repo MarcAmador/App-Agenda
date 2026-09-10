@@ -118,6 +118,24 @@ export class NotificationDispatcher {
     }
 
     const result = await adapter.send(payload)
+
+    if (channel === 'email' && payload.userEmail) {
+      try {
+        await supabaseAdmin.from('system_email_logs').insert({
+          recipient_email: payload.userEmail,
+          recipient_name: payload.userName,
+          template_slug: 'recordatorio_tarea',
+          subject: '🔔 [Prueba] Notificación de Entrega · AgendaPro',
+          status: result.success ? 'delivered' : 'failed',
+          sent_at: result.success ? result.sentAt.toISOString() : null,
+          error_message: result.error ?? null,
+          metadata: { isTest: true },
+        })
+      } catch (sysErr) {
+        console.warn('[sendTestNotification] Advertencia registrando en system_email_logs:', sysErr)
+      }
+    }
+
     return result
   }
 
@@ -169,8 +187,24 @@ export class NotificationDispatcher {
       if (!task || task.deleted_at !== null) continue
       if (task.status !== 'pendiente' && task.status !== 'en_curso') continue
 
-      // Si due_date es null, inferir fecha de creación o el día de hoy
-      const effectiveDueDate = task.due_date || (task.created_at ? task.created_at.split('T')[0] : localToday)
+      // Si due_date es null, inferir fecha en zona horaria institucional local o el día de hoy
+      let effectiveDueDate = task.due_date
+      if (!effectiveDueDate) {
+        if (task.created_at) {
+          try {
+            effectiveDueDate = new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'America/Guatemala',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+            }).format(new Date(task.created_at))
+          } catch {
+            effectiveDueDate = localToday
+          }
+        } else {
+          effectiveDueDate = localToday
+        }
+      }
 
       // Regla 2: Calcular el momento exacto de vencimiento en la zona horaria institucional
       const dueMs = parseZonedDateTime(effectiveDueDate, task.due_time, 'America/Guatemala')
@@ -208,14 +242,8 @@ export class NotificationDispatcher {
       if (!userData) continue
 
       // Regla 4: CAMBIOS VIGENTES HACIA ADELANTE
-      // Los cambios de horario o creación de tareas rigen estrictamente desde el instante en que ocurrieron
+      // No re-enviar alertas pasadas a la creación de la tarea
       const taskCreatedAtMs = new Date(task.created_at).getTime()
-      const prefsUpdatedAtMs = prefs.updated_at
-        ? new Date(prefs.updated_at).getTime()
-        : new Date(prefs.created_at || nowMs).getTime()
-
-      // El hito de notificación no debe ser anterior al momento de creación o cambio
-      const activeSinceMs = Math.max(taskCreatedAtMs, prefsUpdatedAtMs)
 
       // Decodificar todos los tiempos de anticipación elegidos por el usuario (ej: [3, 5, 10, 15])
       const leadTimes = decodeLeadTimes(prefs.reminder_lead_time_minutes)
@@ -224,8 +252,8 @@ export class NotificationDispatcher {
       for (const leadMin of leadTimes) {
         const triggerMs = dueMs - (leadMin * 60 * 1000)
 
-        // 4a: Si el momento de disparo ya había pasado antes de que se guardara la configuración o se creara la tarea, OMITIR
-        if (triggerMs < activeSinceMs - 60000) {
+        // 4a: Si el momento de disparo ya había pasado antes de que se creara la tarea (ej: tarea creada 5 min antes de vencer, no enviar alerta de 1 hora antes)
+        if (triggerMs < taskCreatedAtMs - 60000) {
           continue
         }
 
@@ -235,8 +263,8 @@ export class NotificationDispatcher {
           continue
         }
 
-        // 4c: Ventana de captura en tiempo real: máximo 3 minutos de desfase para no enviar avisos extemporáneos
-        const maxDispatchLagMs = 3 * 60 * 1000
+        // 4c: Ventana de captura en tiempo real: máximo 5 minutos de desfase para no enviar avisos extemporáneos
+        const maxDispatchLagMs = 5 * 60 * 1000
         if (nowMs - triggerMs > maxDispatchLagMs) {
           continue
         }
@@ -291,6 +319,24 @@ export class NotificationDispatcher {
             sent_at: delivery.success ? delivery.sentAt.toISOString() : null,
             error_message: delivery.error ?? null,
           })
+
+          // Registrar en system_email_logs del centro de despacho
+          if (ch === 'email' && userData.email) {
+            try {
+              await supabaseAdmin.from('system_email_logs').insert({
+                recipient_email: userData.email,
+                recipient_name: (userData.user_metadata?.full_name as string) ?? userData.email.split('@')[0],
+                template_slug: 'recordatorio_tarea',
+                subject: `⏰ Recordatorio (${leadMin} min antes): ${task.title}`,
+                status: delivery.success ? 'delivered' : 'failed',
+                sent_at: delivery.success ? delivery.sentAt.toISOString() : null,
+                error_message: delivery.error ?? null,
+                metadata: { taskId: task.id, leadMinutes: leadMin },
+              })
+            } catch (sysErr) {
+              console.warn('[NotificationDispatcher] Advertencia registrando en system_email_logs:', sysErr)
+            }
+          }
 
           if (delivery.success) {
             sent++

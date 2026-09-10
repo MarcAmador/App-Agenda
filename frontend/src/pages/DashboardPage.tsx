@@ -402,7 +402,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Widget 2: Actividades Prioritarias & Próximos Vencimientos */}
-          <div className="lg:col-span-7 card bg-base-100 border border-base-200 shadow-xs rounded-2xl p-5 flex flex-col justify-between gap-4">
+          <div id="tour-upcoming-tasks" className="lg:col-span-7 card bg-base-100 border border-base-200 shadow-xs rounded-2xl p-5 flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between border-b border-base-200 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center">
@@ -481,7 +481,7 @@ export default function DashboardPage() {
         <div id="tour-quick-modules">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-base-content/60 uppercase tracking-wider">
-              Módulos del Sistema (Páginas Dedicadas)
+              Módulos del Sistema
             </h3>
             <span className="text-[11px] text-base-content/40">
               Haz clic para navegar a cada módulo

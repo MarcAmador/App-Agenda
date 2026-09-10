@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   Mail,
   Layers,
+  Smartphone,
+  Laptop,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -28,6 +30,26 @@ export default function AdminUsersPage() {
   const [userToStatus, setUserToStatus] = useState<{ user: AdminUser; newStatus: 'active' | 'suspended' } | null>(null)
   const [userRoleUpdate, setUserRoleUpdate] = useState<{ user: AdminUser; newRole: string } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [userDevices, setUserDevices] = useState<any[]>([])
+  const [loadingDevices, setLoadingDevices] = useState(false)
+
+  useEffect(() => {
+    if (selectedUser?.email) {
+      setLoadingDevices(true)
+      adminService
+        .getAuditLogs({ search: selectedUser.email, limit: 50 })
+        .then((logs: any) => {
+          const deviceLogs = (Array.isArray(logs) ? logs : []).filter(
+            (l: any) => l.action === 'LOGIN' || l.action === 'NEW_DEVICE_LOGIN'
+          )
+          setUserDevices(deviceLogs)
+        })
+        .catch(() => setUserDevices([]))
+        .finally(() => setLoadingDevices(false))
+    } else {
+      setUserDevices([])
+    }
+  }, [selectedUser?.email])
 
   const loadUsers = async () => {
     try {
@@ -390,6 +412,64 @@ export default function AdminUsersPage() {
                 <span className="text-base-content/60 block">Fecha de Registro:</span>
                 <span className="font-semibold">{new Date(selectedUser.createdAt).toLocaleDateString()}</span>
               </div>
+            </div>
+
+            {/* Dispositivos Registrados & Sesiones */}
+            <div className="mt-5 border-t border-base-300 pt-4">
+              <h4 className="font-bold text-xs text-base-content uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
+                <Smartphone className="w-3.5 h-3.5 text-primary" />
+                Dispositivos Registrados & Sesiones Recientes
+              </h4>
+              {loadingDevices ? (
+                <div className="py-4 text-center">
+                  <span className="loading loading-spinner loading-xs text-primary" />
+                </div>
+              ) : userDevices.length === 0 ? (
+                <p className="text-xs text-base-content/50 italic py-2">
+                  No se registran sesiones de dispositivos para este usuario.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {userDevices.map((dev: any) => (
+                    <div
+                      key={dev.id}
+                      className="p-2.5 rounded-xl bg-base-200/60 border border-base-300 flex items-center justify-between text-xs gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-base-300 flex items-center justify-center flex-shrink-0 text-base-content/70">
+                          {dev.resource_id?.includes('Android') || dev.resource_id?.includes('iOS') ? (
+                            <Smartphone className="w-3.5 h-3.5" />
+                          ) : (
+                            <Laptop className="w-3.5 h-3.5" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-semibold block truncate">
+                            {dev.resource_id || 'Navegador Web'}
+                          </span>
+                          <span className="text-[10px] text-base-content/50 font-mono">
+                            IP: {dev.ip_address || '127.0.0.1'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        {dev.action === 'NEW_DEVICE_LOGIN' ? (
+                          <span className="badge badge-warning badge-xs font-bold block mb-0.5">
+                            Nuevo Dispositivo
+                          </span>
+                        ) : (
+                          <span className="badge badge-ghost badge-xs font-medium block mb-0.5">
+                            Sesión Regular
+                          </span>
+                        )}
+                        <span className="text-[10px] text-base-content/50">
+                          {new Date(dev.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="modal-action mt-6">

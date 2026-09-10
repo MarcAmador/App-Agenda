@@ -290,11 +290,13 @@ export function TasksView({
       </div>
 
       {/* ── Barra de Filtros Avanzados ────────────────────────────── */}
-      <AdvancedFilterBar
-        filters={combinedFilters}
-        onFilterChange={(newF) => setAdvancedFilters(newF)}
-        onClear={handleClearAllFilters}
-      />
+      <div id="tour-advanced-filters">
+        <AdvancedFilterBar
+          filters={combinedFilters}
+          onFilterChange={(newF) => setAdvancedFilters(newF)}
+          onClear={handleClearAllFilters}
+        />
+      </div>
 
       {/* ── Pestañas de Filtro Rápido Temporal (en vista Tabla) ───── */}
       {viewMode === 'tabla' && (

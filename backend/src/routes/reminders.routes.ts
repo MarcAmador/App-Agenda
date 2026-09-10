@@ -9,6 +9,8 @@ import { supabaseAdmin } from '../config/supabase'
 import { SendTestNotificationSchema } from '../schemas/preferences.schemas'
 import { notificationDispatcher } from '../services/dispatcher/notification.dispatcher'
 
+import { smtpStore } from '../config/smtpStore'
+
 export const remindersRouter = Router()
 
 /**
@@ -16,19 +18,23 @@ export const remindersRouter = Router()
  * Consulta si el backend tiene SMTP configurado para enviar correos reales (público / no bloqueante).
  */
 remindersRouter.get('/smtp-status', async (_req: Request, res: Response) => {
-  const isConfigured = Boolean(env.SMTP_USER && env.SMTP_PASS)
+  if (!smtpStore.isDatabaseLoaded()) {
+    await smtpStore.loadFromDatabase()
+  }
+  const cfg = smtpStore.get()
+  const isConfigured = smtpStore.hasCredentials()
   res.json({
     configured: isConfigured,
-    user: env.SMTP_USER || null,
-    host: env.SMTP_HOST || 'smtp.gmail.com',
-    from: env.SMTP_FROM || null,
-    isGmail: (env.SMTP_HOST || '').includes('gmail') || Boolean(env.SMTP_USER?.includes('@gmail.com')),
+    user: cfg.user || null,
+    host: cfg.host || 'smtp.gmail.com',
+    from: cfg.fromEmail || cfg.user || null,
+    isGmail: (cfg.host || '').includes('gmail') || Boolean(cfg.user?.includes('@gmail.com')),
   })
 })
 
 /**
  * POST /api/v1/reminders/smtp-configure
- * Valida y guarda las credenciales SMTP en caliente y en el archivo .env
+ * Valida y guarda las credenciales SMTP en caliente, en el archivo .env y en app_settings de BD
  */
 remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
   try {
@@ -64,7 +70,7 @@ remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
       return res.status(422).json({ error: friendlyError })
     }
 
-    // Actualizar variables en memoria
+    // 1. Actualizar memoria env
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(env as any).SMTP_USER = cleanUser
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,7 +85,35 @@ remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
     process.env.SMTP_HOST = cleanHost
     if (from) process.env.SMTP_FROM = from
 
-    // Actualizar o escribir en .env
+    // 2. Actualizar SmtpConfigStore (fuente de verdad única en runtime)
+    smtpStore.update({
+      host: cleanHost,
+      port: Number(port) || 587,
+      secure: secure === true || secure === 'true',
+      user: cleanUser,
+      pass: cleanPass,
+      fromEmail: from || cleanUser,
+      fromName: 'AgendaPro Académico',
+    })
+
+    // 3. Persistir en app_settings de Supabase
+    try {
+      await supabaseAdmin.from('app_settings').upsert({
+        id: 'global_config',
+        smtp_host: cleanHost,
+        smtp_port: Number(port) || 587,
+        smtp_secure: secure === true || secure === 'true',
+        smtp_user: cleanUser,
+        smtp_pass: cleanPass,
+        smtp_from_email: from || cleanUser,
+        smtp_from_name: 'AgendaPro Académico',
+        updated_at: new Date().toISOString(),
+      })
+    } catch (dbErr) {
+      console.warn('[reminders.routes] Advertencia guardando SMTP en BD:', dbErr)
+    }
+
+    // 4. Actualizar o escribir en .env
     const envPath = path.resolve(__dirname, '../../.env')
     if (fs.existsSync(envPath)) {
       let content = fs.readFileSync(envPath, 'utf-8')
@@ -100,7 +134,7 @@ remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
       fs.writeFileSync(envPath, content, 'utf-8')
     }
 
-    // Resetear transporte en el despachador
+    // 5. Resetear transporte en el despachador
     notificationDispatcher.resetEmailAdapter()
 
     res.json({

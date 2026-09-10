@@ -50,8 +50,11 @@ export default function AdminEmailsPage() {
   }
 
   useEffect(() => {
-    loadLogs()
-  }, [statusFilter])
+    const timer = setTimeout(() => {
+      loadLogs()
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [statusFilter, search])
 
   const handleRetry = async (logId: string) => {
     try {

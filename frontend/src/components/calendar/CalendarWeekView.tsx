@@ -34,7 +34,8 @@ export function CalendarWeekView({
   const distanceToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
   monday.setDate(monday.getDate() + distanceToMonday)
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   // Generar los 7 días de la semana
   const weekDays = Array.from({ length: 7 }, (_, i) => {

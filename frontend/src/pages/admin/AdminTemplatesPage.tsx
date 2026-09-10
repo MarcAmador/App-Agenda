@@ -21,6 +21,18 @@ export default function AdminTemplatesPage() {
   const [saving, setSaving] = useState(false)
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop')
 
+  const TEMPLATE_TRIGGERS: Record<string, string> = {
+    recordatorio_tarea: 'Disparador: Cuando una tarea alcanza el tiempo de anticipación configurado (3m, 5m, 15m, 1h...)',
+    bienvenida: 'Disparador: Al registrarse o iniciar sesión por primera vez',
+    recuperacion_password: 'Disparador: Solicitud de restablecimiento desde login (Exclusivo cuentas con email)',
+    resumen_diario: 'Disparador: Programado automáticamente a las 07:00 AM con prioridades del día',
+    resumen_semanal: 'Disparador: Programado los lunes por la mañana con el panorama semanal',
+    nuevo_dispositivo: 'Disparador: Al detectar un inicio de sesión desde un navegador o IP nuevo',
+    seguridad: 'Disparador: Al cambiar contraseña, correo o revocar sesiones activas',
+    confirmacion_email: 'Disparador: Al registrar nueva cuenta que requiere activación',
+    alerta_sistema: 'Disparador: Despacho manual por Superadmin o avisos críticos',
+  }
+
   // Modal de prueba de envío
   const [isTestModalOpen, setIsTestModalOpen] = useState(false)
   const [testEmail, setTestEmail] = useState(user?.email || '')
@@ -203,6 +215,12 @@ export default function AdminTemplatesPage() {
                 <div>
                   <h3 className="font-bold text-base">{currentTemplate.name}</h3>
                   <p className="text-xs text-base-content/60">{currentTemplate.description}</p>
+                  {TEMPLATE_TRIGGERS[currentTemplate.slug] && (
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                      <span>⚡</span>
+                      <span>{TEMPLATE_TRIGGERS[currentTemplate.slug]}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="form-control">
                   <label className="label cursor-pointer gap-2">
@@ -366,11 +384,18 @@ export default function AdminTemplatesPage() {
 
               {/* Tarjeta de Correo Renderizada */}
               <div className="bg-white text-slate-800 rounded-xl overflow-hidden shadow-sm border border-slate-200">
-                {/* Header con gradiente */}
+                {/* Header con gradiente y logo real */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
-                  <span className="inline-block bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-2">
-                    AgendaPro Académico
-                  </span>
+                  <div className="flex items-center gap-2 mb-2">
+                    <img
+                      src="/logo.png"
+                      alt="AgendaPro Logo"
+                      className="w-6 h-6 rounded-md object-cover bg-white shadow-xs"
+                    />
+                    <span className="bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
+                      AgendaPro Académico
+                    </span>
+                  </div>
                   <h2 className="text-base sm:text-lg font-bold leading-snug">
                     {typeof previewData === 'object' ? previewData.headerTitle : ''}
                   </h2>
