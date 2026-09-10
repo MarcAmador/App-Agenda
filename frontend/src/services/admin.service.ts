@@ -47,6 +47,7 @@ export interface EmailTemplate {
 
 export interface AppSettings {
   app_name: string
+  app_url?: string
   app_logo_url: string
   app_favicon_url: string
   app_description: string

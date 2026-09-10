@@ -326,7 +326,7 @@ export default function LoginPage() {
                 ) : (
                   <Chrome className="w-4 h-4 text-primary" />
                 )}
-                Continuar con Google Institucional
+                Continuar con Google
               </button>
 
               {/* Divisor DaisyUI */}
@@ -422,7 +422,7 @@ export default function LoginPage() {
                 </div>
                 {(mode === 'register' || mode === 'reset-password') && (
                   <span className="text-[10px] text-base-content/50 mt-1">
-                    Mínimo 6 caracteres. Se almacenará encriptada y hasheada de forma segura.
+                    Mínimo 6 caracteres.
                   </span>
                 )}
               </div>

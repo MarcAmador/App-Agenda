@@ -15,13 +15,15 @@ import {
   Check,
   Shield,
   Megaphone,
+  Target,
 } from 'lucide-react'
 
 import { useAuth } from '@/context/AuthContext'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { useTasks, useCreateTask, useUpdateTaskStatus } from '@/hooks/useTasks'
+import { useTasks, useCreateTask, useUpdateTaskStatus, useUpdateTask } from '@/hooks/useTasks'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
 import { TaskFormModal } from '@/components/tasks/TaskFormModal'
+import { FocusModeModal } from '@/components/tasks/FocusModeModal'
 import { adminService } from '@/services/admin.service'
 import type { CreateTaskInput } from '@/types/database.types'
 
@@ -34,6 +36,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [modalVisible, setModalVisible] = useState(false)
+  const [focusModalVisible, setFocusModalVisible] = useState(false)
   const [publicSettings, setPublicSettings] = useState<{
     global_banner_enabled?: boolean
     global_banner_text?: string
@@ -58,6 +61,7 @@ export default function DashboardPage() {
   const { data: tasksData, isLoading } = useTasks()
   const createTask = useCreateTask()
   const updateStatus = useUpdateTaskStatus()
+  const updateTask = useUpdateTask()
 
   const tasks = tasksData?.data ?? []
   const todayStr = new Date().toISOString().split('T')[0]
@@ -199,6 +203,17 @@ export default function DashboardPage() {
                 </Link>
               )}
 
+              {/* Botón Modo Enfoque / ¿Qué hago ahora? (Joya 3) */}
+              <button
+                type="button"
+                onClick={() => setFocusModalVisible(true)}
+                className="btn bg-white/20 hover:bg-white/30 text-white border border-white/30 rounded-2xl gap-2 font-bold shadow-md hover:scale-105 transition-all text-xs backdrop-blur-md"
+                title="Selecciona automáticamente la tarea crítica más urgente que debes atender"
+              >
+                <Target className="w-4 h-4 text-warning animate-pulse" />
+                <span>¿Qué hago ahora?</span>
+              </button>
+
               <button
                 type="button"
                 id="tour-btn-new-task"
@@ -316,10 +331,10 @@ export default function DashboardPage() {
         </div>
 
         {/* ── 3. Sección Informativa Doble: Matriz + Próximos Vencimientos ── */}
-        <div id="tour-priority-summary" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* Widget 1: Distribución Eisenhower (4 Cuadrantes) */}
-          <div className="lg:col-span-5 card bg-base-100 border border-base-200 shadow-xs rounded-2xl p-5 flex flex-col justify-between gap-4">
+          <div id="tour-priority-summary" className="lg:col-span-5 card bg-base-100 border border-base-200 shadow-xs rounded-2xl p-5 flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between border-b border-base-200 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
@@ -583,6 +598,15 @@ export default function DashboardPage() {
           onHide={() => setModalVisible(false)}
           onSubmit={handleCreateSubmit}
           isSubmitting={createTask.isPending}
+        />
+
+        {/* ── Modal de Modo Enfoque Inteligente (Joya 3) ──────────── */}
+        <FocusModeModal
+          visible={focusModalVisible}
+          tasks={tasks}
+          onHide={() => setFocusModalVisible(false)}
+          onUpdateStatus={(id, status) => updateStatus.mutate({ id, status })}
+          onUpdateTask={(id, input) => updateTask.mutate({ id, input })}
         />
 
       </div>

@@ -32,11 +32,30 @@ class SmtpConfigStore {
     pass: (process.env.SMTP_PASS || '').replace(/\s+/g, ''),
     fromName: 'AgendaPro Académico',
     fromEmail: process.env.SMTP_USER || '',
-    appUrl: process.env.CORS_ORIGIN || process.env.VITE_FRONTEND_URL || 'http://localhost:5180',
+    appUrl: (process.env.FRONTEND_URL || process.env.APP_URL || process.env.CORS_ORIGIN || 'http://localhost:5180').replace(/\/$/, ''),
     appName: 'AgendaPro Académico',
   }
 
   private isLoaded = false
+
+  /**
+   * Auto-detecta la URL pública del frontend si la petición proviene de un dominio de producción real (ej: Vercel)
+   */
+  autoDetectAppUrl(origin?: string): void {
+    if (!origin || typeof origin !== 'string') return
+    try {
+      const parsed = new URL(origin)
+      const clean = `${parsed.protocol}//${parsed.host}`
+      if (!clean.includes('localhost') && !clean.includes('127.0.0.1')) {
+        if (this.config.appUrl !== clean) {
+          this.config.appUrl = clean
+          console.log(`[SmtpConfigStore] 🌐 URL pública auto-detectada desde tráfico web → ${clean}`)
+        }
+      }
+    } catch {
+      // Ignorar errores de URL malformada
+    }
+  }
 
   /** Carga la configuración directamente desde Supabase `app_settings` */
   async loadFromDatabase(): Promise<void> {

@@ -62,9 +62,12 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
     quiet_hours_end TIME WITHOUT TIME ZONE DEFAULT '07:00',
     timezone VARCHAR(50) DEFAULT 'America/Guatemala',
     default_language VARCHAR(10) DEFAULT 'es',
+    app_url TEXT DEFAULT 'http://localhost:5180',
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::TEXT, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::TEXT, now())
 );
+
+ALTER TABLE public.app_settings ADD COLUMN IF NOT EXISTS app_url TEXT DEFAULT 'http://localhost:5180';
 
 -- 4. TABLA: public.audit_logs (Registro de Auditoría de Acciones Administrativas)
 CREATE TABLE IF NOT EXISTS public.audit_logs (

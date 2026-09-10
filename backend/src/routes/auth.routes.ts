@@ -41,6 +41,37 @@ function parseDeviceSignature(userAgent: string): string {
 }
 
 /**
+ * Resuelve la dirección IP real del cliente considerando proxies reversos (Render, Vercel, Cloudflare).
+ * Normaliza loopbacks IPv6 (::1, ::ffff:127.0.0.1) a un formato claro.
+ */
+export function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for']
+  let ip = ''
+
+  if (typeof forwarded === 'string' && forwarded.trim().length > 0) {
+    ip = forwarded.split(',')[0].trim()
+  } else if (Array.isArray(forwarded) && forwarded.length > 0) {
+    ip = forwarded[0].trim()
+  } else if (req.ip) {
+    ip = req.ip
+  } else if (req.socket?.remoteAddress) {
+    ip = req.socket.remoteAddress
+  }
+
+  // Si viene mapeado como IPv4 sobre IPv6 (::ffff:192.168.1.1)
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.replace('::ffff:', '')
+  }
+
+  // Normalizar loopback IPv6 de localhost
+  if (ip === '::1' || ip === '127.0.0.1') {
+    return '127.0.0.1'
+  }
+
+  return ip || '127.0.0.1'
+}
+
+/**
  * GET /api/v1/auth/me
  * Retorna el perfil del usuario autenticado junto con sus preferencias.
  */
@@ -164,7 +195,7 @@ authRouter.post('/forgot-password', async (req: Request, res: Response) => {
       action: 'PASSWORD_RECOVERY_REQUESTED',
       resource_type: 'auth_account',
       resource_id: user.id,
-      ip_address: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1',
+      ip_address: getClientIp(req),
       user_agent: req.headers['user-agent'] || 'AgendaPro Web',
       status: 'success',
       details: { email: user.email },
@@ -189,10 +220,7 @@ authRouter.post('/record-login', authMiddleware, async (req: Request, res: Respo
   try {
     const userId = req.userId!
     const rawUserAgent = req.headers['user-agent'] || 'Navegador Desconocido'
-    const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.socket.remoteAddress ||
-      '127.0.0.1'
+    const ip = getClientIp(req)
 
     const deviceSignature = parseDeviceSignature(rawUserAgent)
 

@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
 import {
   Calendar, Clock, MoreVertical,
-  Check, ArrowRightLeft, Edit2, Trash2, Tag, GripVertical, MessageSquare
+  Check, ArrowRightLeft, Edit2, Trash2, Tag, GripVertical, MessageSquare,
+  ListChecks, ExternalLink, Folder, Video, BookOpen, Globe
 } from 'lucide-react'
 import type { Task, TaskPriority, TaskStatus } from '@/types/database.types'
 import { SCOPE_META, PRIORITY_META } from '@/types/database.types'
@@ -222,6 +223,58 @@ export function MatrixTaskCard({
           )}
         </div>
       </div>
+
+      {/* ── Subtareas / Checklist (Progreso %) ────────────────────── */}
+      {task.checklist && task.checklist.length > 0 && (
+        <div className="mt-2.5 pt-2 border-t border-base-200/50 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-[11px] text-base-content/70">
+            <span className="flex items-center gap-1 font-semibold">
+              <ListChecks className="w-3 h-3 text-primary" />
+              <span>Pasos: {task.checklist.filter((s) => s.completed).length}/{task.checklist.length}</span>
+            </span>
+            <span className="font-bold text-[10px] text-primary">
+              {Math.round((task.checklist.filter((s) => s.completed).length / task.checklist.length) * 100)}%
+            </span>
+          </div>
+          <div className="w-full bg-base-200 h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-primary h-full transition-all duration-300"
+              style={{
+                width: `${Math.round((task.checklist.filter((s) => s.completed).length / task.checklist.length) * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Enlaces a Recursos (Drive, Meet, Classroom, Teams) ─────── */}
+      {task.links && task.links.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {task.links.map((lnk) => (
+            <a
+              key={lnk.id}
+              href={lnk.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="badge badge-ghost badge-xs hover:badge-primary gap-1 py-1 text-[10px] transition-all cursor-pointer"
+              title={lnk.title || lnk.url}
+            >
+              {lnk.type === 'drive' ? (
+                <Folder className="w-2.5 h-2.5 text-amber-500" />
+              ) : lnk.type === 'meet' || lnk.type === 'teams' || lnk.type === 'zoom' ? (
+                <Video className="w-2.5 h-2.5 text-emerald-500" />
+              ) : lnk.type === 'classroom' ? (
+                <BookOpen className="w-2.5 h-2.5 text-green-600" />
+              ) : (
+                <Globe className="w-2.5 h-2.5 text-primary" />
+              )}
+              <span className="max-w-[90px] truncate">{lnk.title}</span>
+              <ExternalLink className="w-2 h-2 opacity-50" />
+            </a>
+          ))}
+        </div>
+      )}
 
       {/* ── Metadatos inferiores (Fecha, Alcance, Tags) ───────────── */}
       <div className="mt-3 pt-2 border-t border-base-200/60 flex items-center justify-between gap-2 flex-wrap text-xs">

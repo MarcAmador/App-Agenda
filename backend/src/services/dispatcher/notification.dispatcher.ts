@@ -9,6 +9,7 @@ import { EmailAdapter } from './adapters/email.adapter'
 import { WhatsAppAdapter } from './adapters/whatsapp.adapter'
 import { TelegramAdapter } from './adapters/telegram.adapter'
 import { decodeLeadTimes } from '../../utils/leadTimes'
+import { AdminService } from '../admin.service'
 
 /**
  * Obtiene la fecha YYYY-MM-DD actual en la zona horaria institucional
@@ -347,6 +348,115 @@ export class NotificationDispatcher {
           }
         }
       }
+    }
+
+    return { processed, sent, failed }
+  }
+
+  /**
+   * Despacha el Daily Academic Digest (Resumen Matutino de las 7:00 AM)
+   * a todos los usuarios con tareas activas o compromisos pendientes.
+   */
+  async dispatchDailyDigests(options?: { targetUserId?: string; force?: boolean }): Promise<{ processed: number; sent: number; failed: number }> {
+    const localToday = getTodayInTimezone('America/Guatemala')
+    let processed = 0
+    let sent = 0
+    let failed = 0
+
+    try {
+      const { data: usersList, error: uErr } = await supabaseAdmin.auth.admin.listUsers()
+      if (uErr || !usersList?.users) {
+        console.error('[NotificationDispatcher] Error obteniendo usuarios para Daily Digest:', uErr)
+        return { processed, sent, failed }
+      }
+
+      for (const user of usersList.users) {
+        if (!user.email) continue
+        if (options?.targetUserId && user.id !== options.targetUserId) continue
+
+        // 1. Verificar si ya se le envió el digest hoy (evitar duplicados, a menos que force sea true)
+        if (!options?.force) {
+          const { data: alreadySent } = await supabaseAdmin
+            .from('system_email_logs')
+            .select('id')
+            .eq('recipient_email', user.email)
+            .eq('template_slug', 'resumen_diario')
+            .gte('created_at', `${localToday}T00:00:00Z`)
+            .maybeSingle()
+
+          if (alreadySent) {
+            continue
+          }
+        }
+
+        // 2. Obtener tareas activas del usuario
+        const { data: userTasks } = await supabaseAdmin
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .is('deleted_at', null)
+          .in('status', ['pendiente', 'en_curso'])
+
+        const tasks = userTasks ?? []
+        if (tasks.length === 0) {
+          continue
+        }
+
+        processed++
+
+        const tasksToday = tasks.filter((t) => t.due_date === localToday)
+        const overdueTasks = tasks.filter((t) => t.due_date && t.due_date < localToday)
+        const urgentTasks = tasks.filter((t) => t.priority === 'urgente_importante')
+
+        const userName =
+          (user.user_metadata?.full_name as string) ??
+          (user.user_metadata?.name as string) ??
+          user.email.split('@')[0]
+
+        // Construir listado HTML de tareas para inyectar en el correo
+        let taskListHtml = ''
+        if (tasksToday.length > 0) {
+          taskListHtml += `
+            <div style="margin: 16px 0; padding: 14px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; text-transform: uppercase;">
+                📅 Actividades programadas para hoy (${tasksToday.length}):
+              </h4>
+              <ul style="margin: 0; padding-left: 18px; font-size: 13.5px; color: #334155; line-height: 1.6;">
+                ${tasksToday.map((t) => `<li><strong>${t.title}</strong> ${t.due_time ? `<span style="color: #64748b;">(a las ${t.due_time.substring(0, 5)})</span>` : ''} — <span style="color: ${t.priority === 'urgente_importante' ? '#dc2626' : '#2563eb'}; font-weight: 600;">${t.priority === 'urgente_importante' ? '🚨 Urgente' : 'Planificada'}</span></li>`).join('')}
+              </ul>
+            </div>
+          `
+        }
+
+        if (overdueTasks.length > 0) {
+          taskListHtml += `
+            <div style="margin: 16px 0; padding: 14px; background-color: #fef2f2; border-radius: 12px; border: 1px solid #fecaca;">
+              <h4 style="margin: 0 0 8px 0; color: #991b1b; font-size: 13px; font-weight: 700; text-transform: uppercase;">
+                ⚠️ Actividades atrasadas que requieren atención (${overdueTasks.length}):
+              </h4>
+              <ul style="margin: 0; padding-left: 18px; font-size: 13.5px; color: #7f1d1d; line-height: 1.6;">
+                ${overdueTasks.slice(0, 5).map((t) => `<li><strong>${t.title}</strong> <span style="color: #b91c1c;">(venció el ${t.due_date})</span></li>`).join('')}
+              </ul>
+            </div>
+          `
+        }
+
+        try {
+          await AdminService.sendTestTemplateEmail('resumen_diario', user.email, {
+            name: userName,
+            tasks_today_count: String(tasksToday.length),
+            urgent_tasks_count: String(urgentTasks.length),
+            task_list_html: taskListHtml,
+          })
+          sent++
+          console.log(`[NotificationDispatcher] ☀️ Daily Academic Digest enviado a ${user.email}.`)
+        } catch (err: any) {
+          failed++
+          console.error(`[NotificationDispatcher] ❌ Error al enviar Daily Digest a ${user.email}:`, err.message)
+        }
+      }
+    } catch (globalErr) {
+      console.error('[NotificationDispatcher] Error general en dispatchDailyDigests:', globalErr)
     }
 
     return { processed, sent, failed }

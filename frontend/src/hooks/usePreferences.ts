@@ -7,6 +7,7 @@ import {
   sendTestNotification,
   getSmtpStatus,
   configureSmtp,
+  sendDailyDigestTest,
 } from '@/services/preferences.service'
 import type { UpdateUserPreferencesInput, NotificationChannel } from '@/types/database.types'
 
@@ -91,6 +92,25 @@ export function useConfigureSmtp() {
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Error al configurar SMTP')
+    },
+  })
+}
+
+/** Hook para enviar Daily Academic Digest a demanda */
+export function useSendDailyDigest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (options?: { force?: boolean; onlyMe?: boolean }) => sendDailyDigestTest(options),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: preferenceKeys.logs() })
+      if (data.stats && data.stats.sent > 0) {
+        toast.success(`¡Resumen matutino despachado! (${data.stats.sent} enviado)`)
+      } else {
+        toast.success(data.message || 'Resumen matutino evaluado correctamente')
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Error al enviar el resumen matutino')
     },
   })
 }

@@ -14,6 +14,7 @@ export interface TourStepDefinition {
 
 export const TOUR_STEPS: TourStepDefinition[] = [
   // ─── DASHBOARD (Ruta: /) ──────────────────────────────────────────────────
+  // 1. Bienvenida
   {
     route: '/',
     element: '#tour-welcome',
@@ -27,6 +28,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'bottom',
     align: 'start',
   },
+  // 2. Indicadores KPI
   {
     route: '/',
     element: '#tour-kpi-metrics',
@@ -39,18 +41,102 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'bottom',
     align: 'center',
   },
+  // 3. Botón de Registro Rápido
   {
     route: '/',
     element: '#tour-btn-new-task',
     title: '➕ Registro Rápido de Tareas',
     description: `
       <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
-        Crea actividades docentes con un solo clic. Especifica fecha límite, horario de entrega, prioridad en la matriz, etiquetas institucionales y canales de recordatorio.
+        Acceso directo para registrar nuevas actividades docentes y compromisos académicos. A continuación abriremos el formulario para explicarte cada campo.
       </div>
     `,
     side: 'bottom',
     align: 'end',
   },
+
+  // ─── FORMULARIO DE NUEVA TAREA (MODAL INTERACTIVO) ──────────────────────
+  // 4. Modal: Título
+  {
+    route: '/',
+    element: '#tour-modal-title',
+    title: '📝 Título de la Actividad',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Asigna un título descriptivo y claro (ej: <em>"Entrega de calificaciones primer parcial"</em> o <em>"Reunión de academia"</em>). Es el identificador principal en tus tableros, calendario y alertas.
+      </div>
+    `,
+    side: 'bottom',
+    align: 'start',
+  },
+  // 5. Modal: Descripción
+  {
+    route: '/',
+    element: '#tour-modal-description',
+    title: '📄 Descripción & Enlaces de Apoyo',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Añade instrucciones específicas, ligas a documentos en la nube (Drive/OneDrive) o notas que necesites tener a la mano al momento de ejecutar la tarea.
+      </div>
+    `,
+    side: 'bottom',
+    align: 'start',
+  },
+  // 6. Modal: Estado y Prioridad
+  {
+    route: '/',
+    element: '#tour-modal-priority',
+    title: '⚡ Estado & Prioridad (Matriz Eisenhower)',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Define el estado inicial y clasifica la actividad en uno de los <strong>4 cuadrantes de Eisenhower</strong>: <strong>Q1 Hacer Ya</strong> (urgente e importante), <strong>Q2 Planificar</strong> (calidad docente), <strong>Q3 Delegar</strong> o <strong>Q4 Baja Prioridad</strong>.
+      </div>
+    `,
+    side: 'bottom',
+    align: 'center',
+  },
+  // 7. Modal: Fecha Límite y Hora
+  {
+    route: '/',
+    element: '#tour-modal-dates',
+    title: '📅 Fecha Límite & Horario de Entrega',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Indica con precisión el día y la hora límite de entrega. A partir de este momento se calculan tus <strong>recordatorios automáticos por Correo, WhatsApp y Telegram</strong> con la anticipación que configures.
+      </div>
+    `,
+    side: 'top',
+    align: 'center',
+  },
+  // 8. Modal: Metadatos y Etiquetas
+  {
+    route: '/',
+    element: '#tour-modal-meta',
+    title: '🏷️ Alcance, Categoría, Modalidad & Etiquetas',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Personaliza los metadatos: categoría académica (Examen, Reunión, Notas), modalidad (Presencial o Virtual) y etiquetas con <kbd class="kbd kbd-xs">Enter</kbd> para búsquedas rápidas.
+      </div>
+    `,
+    side: 'top',
+    align: 'center',
+  },
+  // 9. Modal: Acciones de Guardado
+  {
+    route: '/',
+    element: '#tour-modal-actions',
+    title: '💾 Guardado Instantáneo y Despacho',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Al hacer clic en <strong>Crear tarea</strong>, la actividad se persiste en tu base de datos, se recalculan tus KPIs en tiempo real y se encolan los avisos correspondientes.
+      </div>
+    `,
+    side: 'top',
+    align: 'end',
+  },
+
+  // ─── CONTINUACIÓN DASHBOARD ──────────────────────────────────────────────
+  // 10. Resumen Cuadrantes
   {
     route: '/',
     element: '#tour-priority-summary',
@@ -63,6 +149,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'top',
     align: 'center',
   },
+  // 11. Próximos Vencimientos
   {
     route: '/',
     element: '#tour-upcoming-tasks',
@@ -75,6 +162,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'top',
     align: 'center',
   },
+  // 12. Accesos Rápidos
   {
     route: '/',
     element: '#tour-quick-modules',
@@ -87,6 +175,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'top',
     align: 'center',
   },
+  // 13. Menú Lateral
   {
     route: '/',
     element: '#tour-sidebar-nav',
@@ -101,6 +190,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
   },
 
   // ─── TAREAS (Ruta: /tareas) ───────────────────────────────────────────────
+  // 14. Vistas
   {
     route: '/tareas',
     element: '#tour-view-modes',
@@ -113,6 +203,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'bottom',
     align: 'end',
   },
+  // 15. Stats Filtros
   {
     route: '/tareas',
     element: '#tour-stats',
@@ -125,6 +216,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'bottom',
     align: 'center',
   },
+  // 16. Filtros Avanzados
   {
     route: '/tareas',
     element: '#tour-advanced-filters',
@@ -137,6 +229,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'bottom',
     align: 'center',
   },
+  // 17. Tabla PrimeReact
   {
     route: '/tareas',
     element: '#tour-tasks-table',
@@ -151,6 +244,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
   },
 
   // ─── MATRIZ DE EISENHOWER (Ruta: /matriz) ──────────────────────────────────
+  // 18. Distribución
   {
     route: '/matriz',
     element: '#tour-matrix-distribution',
@@ -163,6 +257,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'bottom',
     align: 'center',
   },
+  // 19. Cuadrantes
   {
     route: '/matriz',
     element: '#tour-matrix-quadrants',
@@ -178,6 +273,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'top',
     align: 'center',
   },
+  // 20. Drag and Drop
   {
     route: '/matriz',
     element: '#tour-matrix-view',
@@ -192,6 +288,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
   },
 
   // ─── CALENDARIO (Ruta: /calendario) ────────────────────────────────────────
+  // 21. Controles
   {
     route: '/calendario',
     element: '#tour-calendar-controls',
@@ -204,6 +301,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'bottom',
     align: 'center',
   },
+  // 22. Cuadrícula
   {
     route: '/calendario',
     element: '#tour-calendar-grid',
@@ -218,6 +316,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
   },
 
   // ─── CONFIGURACIÓN (Ruta: /config) ─────────────────────────────────────────
+  // 23. Alertas Multicanal
   {
     route: '/config',
     element: '#tour-notifications-section',
@@ -230,6 +329,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'top',
     align: 'center',
   },
+  // 24. Tiempos de Anticipación
   {
     route: '/config',
     element: '#tour-lead-times-multiselect',
@@ -242,6 +342,20 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'top',
     align: 'center',
   },
+  // 25. Selector de Temas Visuales
+  {
+    route: '/config',
+    element: '#tour-theme-selection',
+    title: '🎨 Personalización de Temas Visuales',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Elige entre <strong>12 temas visuales DaisyUI</strong> (claros, oscuros, nórdicos o corporativos). El cambio es instantáneo y se guarda en tu perfil para que disfrutes de máxima legibilidad y confort.
+      </div>
+    `,
+    side: 'top',
+    align: 'center',
+  },
+  // 26. Auditoría
   {
     route: '/config',
     element: '#tour-audit-section',
@@ -256,6 +370,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
   },
 
   // ─── FINAL DEL TOUR (Ruta: /) ──────────────────────────────────────────────
+  // 27. Cierre triunfal
   {
     route: '/',
     element: '#tour-topbar-tour',
@@ -309,39 +424,6 @@ function waitForElement(selector: string, timeout = 3500): Promise<HTMLElement |
   })
 }
 
-/**
- * Determina dinámicamente el mejor lado del popover según la posición real del elemento en el viewport.
- * Evita desbordamientos hacia abajo o hacia los lados.
- */
-function getSmartPlacement(
-  el: HTMLElement,
-  preferredSide?: 'top' | 'bottom' | 'left' | 'right'
-): { side: 'top' | 'bottom' | 'left' | 'right'; align: 'start' | 'center' | 'end' } {
-  const rect = el.getBoundingClientRect()
-  const vh = window.innerHeight
-  const vw = window.innerWidth
-  const spaceBelow = vh - rect.bottom
-  const spaceAbove = rect.top
-  const spaceRight = vw - rect.right
-
-  let side = preferredSide ?? 'bottom'
-
-  // Si el elemento está en la parte inferior y no cabe abajo → colocar arriba
-  if (preferredSide === 'bottom' && spaceBelow < 280 && spaceAbove > spaceBelow) {
-    side = 'top'
-  }
-  // Si el elemento está muy arriba y no cabe arriba → colocar abajo
-  else if (preferredSide === 'top' && spaceAbove < 240 && spaceBelow > spaceAbove) {
-    side = 'bottom'
-  }
-  // Si es un menú lateral estrecho en la izquierda con mucho espacio a la derecha → colocar a la derecha
-  else if (rect.width < 340 && rect.left < 200 && spaceRight > 380) {
-    side = 'right'
-  }
-
-  return { side, align: 'center' }
-}
-
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -365,6 +447,13 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     sessionStorage.removeItem('agendapro_tour_step')
     localStorage.setItem('agendapro_tour_completed', 'true')
     isTransitioningRef.current = false
+
+    // Si el modal de tareas está abierto al cancelar, cerrarlo
+    const closeBtn = document.querySelector<HTMLElement>('#tour-modal-close-btn')
+    if (closeBtn) {
+      closeBtn.click()
+    }
+
     cleanupDriver()
   }, [cleanupDriver])
 
@@ -388,6 +477,18 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // Si el paso objetivo es parte del modal de tareas (#tour-modal-*)
+      if (step.element.startsWith('#tour-modal-')) {
+        const modalTitle = document.querySelector('#tour-modal-title')
+        if (!modalTitle) {
+          const openBtn = document.querySelector<HTMLElement>('#tour-btn-new-task')
+          if (openBtn) {
+            openBtn.click()
+            await new Promise((r) => setTimeout(r, 260))
+          }
+        }
+      }
+
       const targetEl = await waitForElement(step.element, 3500)
       if (!targetEl) {
         console.warn(`[Tour] Elemento ${step.element} no encontrado en ${step.route}. Saltando...`)
@@ -399,68 +500,126 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Limpiar cualquier overlay previo para evitar capas duplicadas oscuras
+      // Limpiar cualquier overlay previo para evitar capas duplicadas
       cleanupDriver()
       isTransitioningRef.current = false
 
-      // Scroll con 'nearest' para evitar desplazamientos excesivos al fondo
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+      // Scroll suave centrado en el elemento
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
       await new Promise((r) => setTimeout(r, 220))
 
-      const placement = getSmartPlacement(targetEl, step.side)
       const isFirst = stepIndex === 0
       const isLast = stepIndex === TOUR_STEPS.length - 1
+
+      const advanceTo = async (nextIdx: number) => {
+        if (nextIdx < 0 || nextIdx >= TOUR_STEPS.length) {
+          stopTour()
+          return
+        }
+
+        const currentStepDef = TOUR_STEPS[stepIndex]
+        const nextStepDef = TOUR_STEPS[nextIdx]
+
+        // Si salimos del modal de creación de tareas (hacia adelante o hacia atrás), cerrar el modal
+        if (currentStepDef?.element.startsWith('#tour-modal-') && !nextStepDef?.element.startsWith('#tour-modal-')) {
+          const closeBtn = document.querySelector<HTMLElement>('#tour-modal-close-btn')
+          if (closeBtn) {
+            closeBtn.click()
+            await new Promise((r) => setTimeout(r, 160))
+          }
+        }
+
+        isTransitioningRef.current = true
+        sessionStorage.setItem('agendapro_tour_step', String(nextIdx))
+        cleanupDriver()
+
+        if (location.pathname !== nextStepDef.route) {
+          navigate(nextStepDef.route)
+        } else {
+          executeStep(nextIdx)
+        }
+      }
 
       const driverObj = driver({
         animate: true,
         allowClose: true,
         smoothScroll: false,
-        stagePadding: 8,
+        stagePadding: 6,
+        popoverOffset: 12,
         showProgress: true,
-        progressText: `Paso {{current}} de {{total}}`,
+        progressText: `Paso ${stepIndex + 1} de ${TOUR_STEPS.length}`,
         nextBtnText: isLast ? '🎉 ¡Comenzar ahora!' : 'Siguiente →',
         prevBtnText: '← Anterior',
+        doneBtnText: isLast ? '🎉 ¡Comenzar ahora!' : 'Siguiente →',
         showButtons: isFirst ? ['next', 'close'] : ['next', 'previous', 'close'],
+        disableButtons: [],
         steps: [
           {
             element: step.element,
             popover: {
               title: step.title,
               description: step.description,
-              side: placement.side,
-              align: step.align ?? placement.align,
+              side: step.side || 'bottom',
+              align: step.align || 'center',
+              progressText: `Paso ${stepIndex + 1} de ${TOUR_STEPS.length}`,
+              nextBtnText: isLast ? '🎉 ¡Comenzar ahora!' : 'Siguiente →',
+              prevBtnText: '← Anterior',
+              doneBtnText: isLast ? '🎉 ¡Comenzar ahora!' : 'Siguiente →',
+              showButtons: isFirst ? ['next', 'close'] : ['next', 'previous', 'close'],
+              disableButtons: [],
+              onPopoverRender: (popover) => {
+                // 1. Mostrar progreso exacto global (Paso X de Y)
+                if (popover.progress) {
+                  popover.progress.textContent = `Paso ${stepIndex + 1} de ${TOUR_STEPS.length}`
+                }
+
+                // 2. Botón "Anterior": deshabilitar bloqueo nativo y habilitar navegación
+                if (!isFirst && popover.previousButton) {
+                  popover.previousButton.disabled = false
+                  popover.previousButton.removeAttribute('disabled')
+                  popover.previousButton.classList.remove('driver-popover-btn-disabled')
+                  popover.previousButton.style.display = 'inline-flex'
+                  popover.previousButton.style.pointerEvents = 'auto'
+                  popover.previousButton.style.cursor = 'pointer'
+                  popover.previousButton.style.opacity = '1'
+                  popover.previousButton.textContent = '← Anterior'
+                  popover.previousButton.onclick = (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    advanceTo(stepIndex - 1)
+                  }
+                } else if (isFirst && popover.previousButton) {
+                  popover.previousButton.style.display = 'none'
+                }
+
+                // 3. Botón "Siguiente": asegurar texto y navegación
+                const nextButton = popover.nextButton || popover.footerButtons?.querySelector('.driver-popover-next-btn')
+                if (nextButton) {
+                  nextButton.textContent = isLast ? '🎉 ¡Comenzar ahora!' : 'Siguiente →'
+                  ;(nextButton as HTMLElement).onclick = (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (isLast) {
+                      stopTour()
+                    } else {
+                      advanceTo(stepIndex + 1)
+                    }
+                  }
+                }
+              },
             },
           },
         ],
         onNextClick: () => {
-          if (isLast) {
-            stopTour()
-          } else {
-            const nextIdx = stepIndex + 1
-            const nextStep = TOUR_STEPS[nextIdx]
-            isTransitioningRef.current = true
-            sessionStorage.setItem('agendapro_tour_step', String(nextIdx))
-            cleanupDriver()
-            if (location.pathname !== nextStep.route) {
-              navigate(nextStep.route)
-            } else {
-              executeStep(nextIdx)
-            }
-          }
+          if (isLast) stopTour()
+          else advanceTo(stepIndex + 1)
         },
         onPrevClick: () => {
-          if (!isFirst) {
-            const prevIdx = stepIndex - 1
-            const prevStep = TOUR_STEPS[prevIdx]
-            isTransitioningRef.current = true
-            sessionStorage.setItem('agendapro_tour_step', String(prevIdx))
-            cleanupDriver()
-            if (location.pathname !== prevStep.route) {
-              navigate(prevStep.route)
-            } else {
-              executeStep(prevIdx)
-            }
-          }
+          if (!isFirst) advanceTo(stepIndex - 1)
+        },
+        onDoneClick: () => {
+          if (isLast) stopTour()
+          else advanceTo(stepIndex + 1)
         },
         onCloseClick: () => {
           stopTour()

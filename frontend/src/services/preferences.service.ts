@@ -207,4 +207,27 @@ export async function configureSmtp(payload: {
   return body
 }
 
+/**
+ * Dispara el Daily Academic Digest de prueba para el usuario actual
+ */
+export async function sendDailyDigestTest(options?: { force?: boolean; onlyMe?: boolean }): Promise<{ message: string; stats: { processed: number; sent: number; failed: number } }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'
+  const res = await fetch(`${backendUrl}/api/v1/reminders/daily-digest`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token ?? ''}`,
+    },
+    body: JSON.stringify({ force: options?.force ?? true, onlyMe: options?.onlyMe ?? true }),
+  })
+  const body = await res.json()
+  if (!res.ok) {
+    throw new Error(body.error || 'Error al disparar el Daily Academic Digest')
+  }
+  return body
+}
+
 

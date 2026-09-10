@@ -12,7 +12,7 @@ export function ThemeSettings() {
   }
 
   return (
-    <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 flex flex-col gap-4">
+    <div id="tour-theme-selection" className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 flex flex-col gap-4">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
           <Palette className="w-4 h-4" />

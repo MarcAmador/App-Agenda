@@ -221,3 +221,26 @@ remindersRouter.post('/dispatch', async (_req: Request, res: Response) => {
     res.status(500).json({ error: message })
   }
 })
+
+/**
+ * POST /api/v1/reminders/daily-digest
+ * Dispara el Daily Academic Digest (opcionalmente forzado para el usuario actual si force: true).
+ */
+remindersRouter.post('/daily-digest', async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId!
+    const force = req.body?.force === true
+    const onlyMe = req.body?.onlyMe !== false // Por defecto solo para el usuario activo si se llama desde su configuración
+    const stats = await notificationDispatcher.dispatchDailyDigests({
+      targetUserId: onlyMe ? userId : undefined,
+      force,
+    })
+    res.json({
+      message: 'Daily Academic Digest evaluado y despachado correctamente',
+      stats,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error al ejecutar Daily Academic Digest'
+    res.status(500).json({ error: message })
+  }
+})

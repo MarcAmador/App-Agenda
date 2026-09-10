@@ -13,11 +13,13 @@ import {
   ExternalLink,
   Smartphone,
   Sparkles,
+  Sun,
 } from 'lucide-react'
 import {
   useUserPreferences,
   useUpdatePreferences,
   useSendTestNotification,
+  useSendDailyDigest,
 } from '@/hooks/usePreferences'
 import { useAuth } from '@/context/AuthContext'
 import type { NotificationChannel } from '@/types/database.types'
@@ -37,6 +39,7 @@ export function NotificationSettings() {
   const { data: prefs, isLoading } = useUserPreferences()
   const updatePrefs = useUpdatePreferences()
   const sendTest = useSendTestNotification()
+  const sendDigest = useSendDailyDigest()
 
   const [channels, setChannels] = useState<NotificationChannel[]>(['email'])
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -386,6 +389,47 @@ export function NotificationSettings() {
           <span className="text-[10px] text-base-content/50 mt-1">
             Se despachará una alerta independiente para cada tiempo seleccionado (ej. 15 min, 10 min, 5 min y 3 min antes).
           </span>
+        </div>
+      </div>
+
+      {/* ── Joya 4: Daily Academic Digest Automático (7:00 AM) ─────── */}
+      <div className="pt-3 border-t border-base-200 flex flex-col gap-3 bg-gradient-to-r from-amber-500/10 via-primary/5 to-transparent p-4 rounded-xl border border-amber-500/20">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+              <Sun className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-bold text-xs text-base-content flex items-center gap-1.5">
+                  Resumen Académico Diario (Daily Academic Digest)
+                </h4>
+                <span className="badge badge-warning badge-xs font-semibold py-1 px-2 text-[10px]">
+                  07:00 AM Diaria
+                </span>
+              </div>
+              <p className="text-[11px] text-base-content/70 mt-0.5 max-w-xl leading-relaxed">
+                Recibe automáticamente cada mañana a las 7:00 AM un correo oficial con tus actividades del día, alertas de tareas vencidas y compromisos prioritarios del Cuadrante 1.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => sendDigest.mutate({ force: true, onlyMe: true })}
+              disabled={sendDigest.isPending}
+              className="btn btn-warning btn-outline btn-xs rounded-lg gap-1.5 font-semibold shadow-xs"
+              title="Disparar un resumen diario inmediato hacia tu correo para verificar el diseño"
+            >
+              {sendDigest.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Sun className="w-3.5 h-3.5" />
+              )}
+              Enviar Mi Resumen Ahora (Prueba)
+            </button>
+          </div>
         </div>
       </div>
 

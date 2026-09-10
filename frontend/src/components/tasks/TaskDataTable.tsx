@@ -8,7 +8,8 @@ import { OverlayPanel } from 'primereact/overlaypanel'
 import { Calendar } from 'primereact/calendar'
 import {
   Pencil, Trash2, Archive, CheckCircle2, Clock, Ban,
-  ChevronDown, MessageSquare, Check
+  ChevronDown, MessageSquare, Check, ListChecks, ExternalLink,
+  Folder, Video, BookOpen, Globe
 } from 'lucide-react'
 
 import type { Task, TaskStatus } from '@/types/database.types'
@@ -69,26 +70,70 @@ export function TaskDataTable({
 
   // ─── Templates de columnas ────────────────────────────────────────────────
 
-  const titleTemplate = (row: Task) => (
-    <div className="flex flex-col gap-0.5 max-w-xs">
-      <span className="font-medium text-sm text-base-content leading-tight truncate" title={row.title}>
-        {row.title}
-      </span>
-      {row.category && (
-        <span className="text-xs text-base-content/50">{row.category}</span>
-      )}
-      {row.tags.length > 0 && (
-        <div className="flex gap-1 flex-wrap mt-0.5">
-          {row.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="badge badge-xs badge-outline">{tag}</span>
-          ))}
-          {row.tags.length > 3 && (
-            <span className="badge badge-xs badge-ghost">+{row.tags.length - 3}</span>
+  const titleTemplate = (row: Task) => {
+    const subtasks = row.checklist || []
+    const completedSubtasks = subtasks.filter((s) => s.completed).length
+    const links = row.links || []
+
+    return (
+      <div className="flex flex-col gap-1 max-w-xs">
+        <span className="font-medium text-sm text-base-content leading-tight truncate" title={row.title}>
+          {row.title}
+        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {row.category && (
+            <span className="text-xs text-base-content/50">{row.category}</span>
+          )}
+          {subtasks.length > 0 && (
+            <span
+              className="badge badge-primary badge-outline badge-xs gap-1 font-semibold py-1"
+              title={`${completedSubtasks} de ${subtasks.length} pasos completados`}
+            >
+              <ListChecks className="w-2.5 h-2.5" />
+              <span>{completedSubtasks}/{subtasks.length}</span>
+            </span>
           )}
         </div>
-      )}
-    </div>
-  )
+        {links.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+            {links.map((lnk) => (
+              <a
+                key={lnk.id}
+                href={lnk.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="badge badge-ghost badge-xs hover:badge-primary gap-1 transition-all"
+                title={lnk.title || lnk.url}
+              >
+                {lnk.type === 'drive' ? (
+                  <Folder className="w-2.5 h-2.5 text-amber-500" />
+                ) : lnk.type === 'meet' || lnk.type === 'teams' || lnk.type === 'zoom' ? (
+                  <Video className="w-2.5 h-2.5 text-emerald-500" />
+                ) : lnk.type === 'classroom' ? (
+                  <BookOpen className="w-2.5 h-2.5 text-green-600" />
+                ) : (
+                  <Globe className="w-2.5 h-2.5 text-primary" />
+                )}
+                <span className="max-w-[90px] truncate">{lnk.title}</span>
+                <ExternalLink className="w-2 h-2 opacity-50" />
+              </a>
+            ))}
+          </div>
+        )}
+        {row.tags.length > 0 && (
+          <div className="flex gap-1 flex-wrap mt-0.5">
+            {row.tags.slice(0, 3).map((tag) => (
+              <span key={tag} className="badge badge-xs badge-outline">{tag}</span>
+            ))}
+            {row.tags.length > 3 && (
+              <span className="badge badge-xs badge-ghost">+{row.tags.length - 3}</span>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const statusTemplate = (row: Task) => {
     const panelId = `status-panel-${row.id}`

@@ -14,6 +14,19 @@ const TaskScopeEnum = z.enum([
   'diario', 'semanal', 'mensual', 'bimestral', 'anual',
 ])
 
+const TaskSubtaskSchema = z.object({
+  id: z.string(),
+  text: z.string().min(1, 'El texto de la subtarea es requerido').max(500),
+  completed: z.boolean().default(false),
+})
+
+const TaskLinkSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, 'El título del enlace es requerido').max(255),
+  url: z.string().url('URL inválida').max(1000),
+  type: z.enum(['drive', 'meet', 'classroom', 'teams', 'zoom', 'link']).default('link'),
+})
+
 // ─── Schema de creación de tarea ─────────────────────────────────────────────
 
 export const CreateTaskSchema = z.object({
@@ -29,6 +42,8 @@ export const CreateTaskSchema = z.object({
   tags:         z.array(z.string().max(50)).default([]),
   is_shared:    z.boolean().default(false),
   shared_with:  z.array(z.string().uuid()).default([]),
+  checklist:    z.array(TaskSubtaskSchema).default([]),
+  links:        z.array(TaskLinkSchema).default([]),
 })
 
 // ─── Schema de actualización (todos los campos opcionales) ────────────────────

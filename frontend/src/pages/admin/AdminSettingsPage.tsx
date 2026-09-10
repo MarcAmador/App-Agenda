@@ -11,6 +11,7 @@ import {
   Megaphone,
   Plus,
   X,
+  Globe,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -317,6 +318,29 @@ export default function AdminSettingsPage() {
                 onChange={(e) => setSettings({ ...settings, app_description: e.target.value })}
                 className="textarea textarea-bordered text-xs w-full"
               />
+            </div>
+
+            {/* URL Pública del Frontend */}
+            <div className="form-control pt-2 border-t border-base-200">
+              <label className="label py-1">
+                <span className="label-text font-bold text-xs flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-primary" />
+                  URL Pública de la Plataforma (Producción / Vercel):
+                </span>
+                <span className="label-text-alt text-base-content/50 text-[11px]">
+                  Configura el dominio hacia donde redirigen los botones de correos
+                </span>
+              </label>
+              <input
+                type="url"
+                placeholder="https://tu-proyecto.vercel.app"
+                value={(settings as any).app_url || ''}
+                onChange={(e) => setSettings({ ...settings, app_url: e.target.value } as any)}
+                className="input input-bordered input-sm w-full font-mono text-xs"
+              />
+              <span className="text-[10px] text-base-content/50 mt-1">
+                Por defecto el backend autodetecta la URL pública desde la que accedes en producción (Vercel). Puedes forzar una URL fija aquí.
+              </span>
             </div>
 
             <div className="divider my-2"></div>

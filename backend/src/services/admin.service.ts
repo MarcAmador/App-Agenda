@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../config/supabase'
 import { SUPER_ADMIN_EMAILS } from '../middlewares/admin.middleware'
 import { smtpStore } from '../config/smtpStore'
 import { notificationDispatcher } from './dispatcher/notification.dispatcher'
+import { getLogoCidAttachment } from '../utils/emailAssets'
 
 // ─── Tipos e Interfaces ────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ export interface EmailTemplateItem {
 export interface AppSettingsData {
   id?: string
   app_name: string
+  app_url?: string
   app_logo_url: string
   app_favicon_url: string
   app_description: string
@@ -722,6 +724,10 @@ export class AdminService {
       footerText = footerText.replace(reg, v)
     })
 
+    if (vars.task_list_html && !bodyHtml.includes(vars.task_list_html)) {
+      bodyHtml += vars.task_list_html
+    }
+
     // Construcción de HTML premium con DaisyUI visual palette
     const fullHtml = `
 <!DOCTYPE html>
@@ -740,7 +746,7 @@ export class AdminService {
           <!-- Encabezado con Gradiente y Logo Real -->
           <tr>
             <td style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding: 32px 28px; text-align: left;">
-              <img src="${smtpStore.get().appUrl}/logo.png" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
+              <img src="cid:logo@agendapro" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
               <span style="display: inline-block; background-color: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 9999px; margin-bottom: 12px;">
                 ${memorySettings.app_name}
               </span>
@@ -782,25 +788,33 @@ export class AdminService {
     }
     const cfg = smtpStore.get()
 
-    // Nodemailer con IPv4 garantizado
+    // Nodemailer con IPv4 garantizado y pooling
     const transporter = nodemailer.createTransport({
       host: cfg.host,
       port: cfg.port,
       secure: cfg.secure,
       auth: {
         user: cfg.user,
-        pass: cfg.pass,
+        pass: cfg.pass.replace(/\s+/g, ''),
       },
       family: 4,
-      connectionTimeout: 10000,
+      pool: true,
+      maxConnections: 3,
+      connectionTimeout: 25000,
+      greetingTimeout: 25000,
+      socketTimeout: 30000,
     } as TransportOptions)
 
     try {
+      const logoAtt = getLogoCidAttachment()
+      const attachments = logoAtt ? [logoAtt] : []
+
       const info = await transporter.sendMail({
         from: `"${cfg.fromName || 'AgendaPro Académico'}" <${cfg.fromEmail || cfg.user}>`,
         to: recipientEmail,
         subject,
         html: fullHtml,
+        attachments,
       })
 
       // Registrar en system_email_logs del centro de control
@@ -899,6 +913,7 @@ export class AdminService {
     }
 
     // ─── Sincronizar con SmtpConfigStore (fuente de verdad en runtime) ────────
+    const updatedAppUrl = (data as any).app_url || memorySettings.app_url
     smtpStore.update({
       host: memorySettings.smtp_host,
       port: memorySettings.smtp_port,
@@ -908,6 +923,7 @@ export class AdminService {
       fromName: memorySettings.smtp_from_name,
       fromEmail: memorySettings.smtp_from_email,
       appName: memorySettings.app_name,
+      ...(updatedAppUrl ? { appUrl: updatedAppUrl } : {}),
     })
 
     // Reiniciar el transporter cacheado en el EmailAdapter para que use la nueva config
@@ -919,9 +935,11 @@ export class AdminService {
     }
 
     try {
+      const dbPayload = { ...memorySettings }
+      delete (dbPayload as any).app_url
       await supabaseAdmin.from('app_settings').upsert({
         id: 'global_config',
-        ...memorySettings,
+        ...dbPayload,
         updated_at: new Date().toISOString(),
       })
     } catch (err) {
@@ -1139,8 +1157,13 @@ export class AdminService {
       host: cfg.host,
       port: cfg.port,
       secure: cfg.secure,
-      auth: { user: cfg.user, pass: cfg.pass },
+      auth: { user: cfg.user, pass: cfg.pass.replace(/\s+/g, '') },
       family: 4,
+      pool: true,
+      maxConnections: 3,
+      connectionTimeout: 25000,
+      greetingTimeout: 25000,
+      socketTimeout: 30000,
     } as any)
 
     try {

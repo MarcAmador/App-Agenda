@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import { smtpStore } from '../../../config/smtpStore'
+import { getLogoCidAttachment } from '../../../utils/emailAssets'
 import type { ChannelAdapter, DeliveryResult, NotificationPayload } from '../dispatcher.types'
 
 export class EmailAdapter implements ChannelAdapter {
@@ -28,7 +29,7 @@ export class EmailAdapter implements ChannelAdapter {
         else if (payload.leadMinutes === 60) leadLabel = '1 hora antes'
         else if (payload.leadMinutes === 120) leadLabel = '2 horas antes'
         else if (payload.leadMinutes === 1440) leadLabel = '1 día antes'
-        else leadLabel = `${payload.leadMinutes / 60} horas antes`
+        else leadLabel = `${payload.leadMinutes} min antes`
       }
 
       const subject = payload.isTest
@@ -43,12 +44,16 @@ export class EmailAdapter implements ChannelAdapter {
       const cfg = smtpStore.get()
       const fromAddress = `"${cfg.fromName}" <${cfg.fromEmail || cfg.user || 'notificaciones@agendapro.edu'}>`
 
+      const logoAtt = getLogoCidAttachment()
+      const attachments = logoAtt ? [logoAtt] : []
+
       const info = await transporter.sendMail({
         from: fromAddress,
         to: payload.userEmail,
         subject,
         text,
         html,
+        attachments,
       })
 
       let previewUrl: string | undefined
@@ -119,9 +124,14 @@ export class EmailAdapter implements ChannelAdapter {
           port: cfg.port,
           secure: cfg.secure,
           family: 4,
+          pool: true,
+          maxConnections: 3,
+          connectionTimeout: 25000,
+          greetingTimeout: 25000,
+          socketTimeout: 30000,
           auth: {
             user: cfg.user,
-            pass: cfg.pass,
+            pass: cfg.pass.replace(/\s+/g, ''),
           },
         } as any)
         console.log(`[EmailAdapter] 🔌 Transporter SMTP creado/actualizado → ${cfg.user}@${cfg.host}:${cfg.port}`)
@@ -195,7 +205,8 @@ ${appUrl}/tareas
             <td style="background: linear-gradient(135deg, #4f46e5 0%, #0284c7 50%, #06b6d4 100%); padding: 36px 32px; text-align: center;">
               <table width="100%" border="0" cellpadding="0" cellspacing="0">
                 <tr>
-                    <img src="${appUrl}/logo.png" alt="AgendaPro" width="52" height="52" style="display: block; border-radius: 14px; margin: 0 auto 12px auto; box-shadow: 0 4px 14px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
+                  <td align="center">
+                    <img src="cid:logo@agendapro" alt="AgendaPro" width="52" height="52" style="display: block; border-radius: 14px; margin: 0 auto 12px auto; box-shadow: 0 4px 14px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
                     <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: -0.03em;">AgendaPro</h1>
                     <p style="margin: 6px 0 0 0; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 500;">Gestión Académica & Productividad</p>
                   </td>

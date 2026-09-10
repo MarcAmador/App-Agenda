@@ -126,11 +126,28 @@ export default function App() {
               toastOptions={{
                 duration: 4000,
                 style: {
-                  background: 'var(--b1)',
-                  color: 'var(--bc)',
-                  border: '1px solid var(--b3)',
-                  borderRadius: '0.75rem',
-                  fontSize: '0.875rem',
+                  background: 'oklch(var(--b1) / 0.96)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  color: 'oklch(var(--bc))',
+                  border: '1px solid oklch(var(--b3) / 0.8)',
+                  borderRadius: '1rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  boxShadow: '0 20px 30px -8px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.12)',
+                  padding: '12px 16px',
+                },
+                success: {
+                  iconTheme: {
+                    primary: 'oklch(var(--su))',
+                    secondary: '#ffffff',
+                  },
+                },
+                error: {
+                  iconTheme: {
+                    primary: 'oklch(var(--er))',
+                    secondary: '#ffffff',
+                  },
                 },
               }}
             />

@@ -29,6 +29,23 @@ export type TaskScope =
 export type NotificationChannel = 'email' | 'whatsapp' | 'telegram'
 export type NotificationStatus = 'pending' | 'sent' | 'failed'
 
+// ─── Subtareas & Enlaces a Recursos ──────────────────────────────────────────
+
+export interface TaskSubtask {
+  id: string
+  text: string
+  completed: boolean
+}
+
+export type TaskLinkType = 'drive' | 'meet' | 'classroom' | 'teams' | 'zoom' | 'link'
+
+export interface TaskLink {
+  id: string
+  title: string
+  url: string
+  type: TaskLinkType
+}
+
 // ─── Tabla: tasks ─────────────────────────────────────────────────────────────
 
 export interface Task {
@@ -46,6 +63,8 @@ export interface Task {
   tags: string[]
   is_shared: boolean
   shared_with: string[]
+  checklist?: TaskSubtask[]     // Lista de pasos o subtareas
+  links?: TaskLink[]           // Enlaces a recursos externos (Drive, Meet, Classroom)
   deleted_at: string | null     // TIMESTAMPTZ — null = activa
   created_at: string
   updated_at: string

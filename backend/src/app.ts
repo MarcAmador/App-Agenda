@@ -9,8 +9,12 @@ import { tasksRouter } from './routes/tasks.routes'
 import { preferencesRouter } from './routes/preferences.routes'
 import { remindersRouter } from './routes/reminders.routes'
 import { adminRouter } from './routes/admin.routes'
+import { smtpStore } from './config/smtpStore'
 
 const app = express()
+
+// ─── Reverse Proxy Trust (Render / Vercel / Cloudflare) ────────────────────────
+app.set('trust proxy', 1)
 
 // ─── Seguridad HTTP ───────────────────────────────────────────────────────────
 app.use(helmet())
@@ -29,6 +33,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200,
 }))
+
+// ─── Auto-detección dinámica de URL pública del frontend ─────────────────────
+app.use((req, _res, next) => {
+  const origin = (req.headers.origin as string) || (req.headers.referer as string)
+  if (origin) {
+    smtpStore.autoDetectAppUrl(origin)
+  }
+  next()
+})
 
 // ─── Rate Limiting global ────────────────────────────────────────────────────
 const limiter = rateLimit({

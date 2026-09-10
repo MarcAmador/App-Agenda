@@ -9,6 +9,8 @@ export const SUPER_ADMIN_EMAILS = [
 declare global {
   namespace Express {
     interface Request {
+      userId?: string
+      userEmail?: string
       userRole?: 'super_admin' | 'admin' | 'support' | 'user'
       isSuperAdmin?: boolean
     }
