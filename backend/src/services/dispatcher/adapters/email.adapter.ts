@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import { smtpStore } from '../../../config/smtpStore'
-import { getLogoCidAttachment } from '../../../utils/emailAssets'
+import { getEmailLogoUrl } from '../../../utils/emailAssets'
 import { sendEmailMessage, isBrevoProvider, isResendProvider } from '../../email/emailTransport'
 import type { ChannelAdapter, DeliveryResult, NotificationPayload } from '../dispatcher.types'
 
@@ -63,8 +63,6 @@ export class EmailAdapter implements ChannelAdapter {
       } else {
         const { transporter, isEthereal } = await this.getTransporter()
         const fromAddress = `"${cfg.fromName}" <${cfg.fromEmail || cfg.user || 'notificaciones@agendapro.edu'}>`
-        const logoAtt = getLogoCidAttachment()
-        const attachments = logoAtt ? [logoAtt] : []
 
         const info = await transporter.sendMail({
           from: fromAddress,
@@ -72,7 +70,6 @@ export class EmailAdapter implements ChannelAdapter {
           subject,
           text,
           html,
-          attachments,
         })
         messageId = info.messageId
 
@@ -193,6 +190,7 @@ ${appUrl}/tareas
 
   private generateHtml(payload: NotificationPayload): string {
     const appUrl = smtpStore.get().appUrl
+    const logoUrl = getEmailLogoUrl(appUrl)
     const priorityColor =
       payload.priority?.toLowerCase().includes('urgente') && payload.priority?.toLowerCase().includes('importante')
         ? '#ef4444' // Q1 Red
@@ -223,7 +221,7 @@ ${appUrl}/tareas
               <table width="100%" border="0" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <img src="cid:logo@agendapro" alt="AgendaPro" width="52" height="52" style="display: block; border-radius: 14px; margin: 0 auto 12px auto; box-shadow: 0 4px 14px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
+                    <img src="${logoUrl}" alt="AgendaPro" width="52" height="52" style="display: block; border-radius: 14px; margin: 0 auto 12px auto; box-shadow: 0 4px 14px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
                     <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: -0.03em;">AgendaPro</h1>
                     <p style="margin: 6px 0 0 0; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 500;">Gestión Académica & Productividad</p>
                   </td>

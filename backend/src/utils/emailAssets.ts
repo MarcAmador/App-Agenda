@@ -33,3 +33,18 @@ export function getLogoCidAttachment() {
 
   return null
 }
+
+/**
+ * Retorna la URL pública HTTPS accesible para el logotipo oficial en correos.
+ * Si appUrl apunta a localhost o está vacío, utiliza la URL oficial de producción
+ * en Vercel CDN para que los proxies de Gmail/Outlook siempre puedan descargarla.
+ */
+export function getEmailLogoUrl(appUrl?: string): string {
+  const fallbackUrl = 'https://app-agenda-pied.vercel.app/logo.png'
+  if (!appUrl || typeof appUrl !== 'string') return fallbackUrl
+  const clean = appUrl.trim().replace(/\/$/, '')
+  if (clean.includes('localhost') || clean.includes('127.0.0.1')) {
+    return fallbackUrl
+  }
+  return `${clean}/logo.png`
+}

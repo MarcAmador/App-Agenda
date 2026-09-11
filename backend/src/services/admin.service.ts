@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../config/supabase'
 import { SUPER_ADMIN_EMAILS } from '../middlewares/admin.middleware'
 import { smtpStore } from '../config/smtpStore'
 import { notificationDispatcher } from './dispatcher/notification.dispatcher'
-import { getLogoCidAttachment } from '../utils/emailAssets'
+import { getEmailLogoUrl } from '../utils/emailAssets'
 import { sendEmailMessage, verifyEmailTransport } from './email/emailTransport'
 
 // ─── Tipos e Interfaces ────────────────────────────────────────────────────────
@@ -730,6 +730,7 @@ export class AdminService {
     }
 
     // Construcción de HTML premium con DaisyUI visual palette
+    const logoUrl = getEmailLogoUrl(smtpStore.get().appUrl)
     const fullHtml = `
 <!DOCTYPE html>
 <html lang="es">
@@ -747,7 +748,7 @@ export class AdminService {
           <!-- Encabezado con Gradiente y Logo Real -->
           <tr>
             <td style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding: 32px 28px; text-align: left;">
-              <img src="cid:logo@agendapro" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
+              <img src="${logoUrl}" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
               <span style="display: inline-block; background-color: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 9999px; margin-bottom: 12px;">
                 ${memorySettings.app_name}
               </span>

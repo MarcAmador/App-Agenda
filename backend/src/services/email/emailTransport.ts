@@ -1,7 +1,7 @@
 import nodemailer, { type TransportOptions } from 'nodemailer'
 import fs from 'fs'
 import { smtpStore } from '../../config/smtpStore'
-import { getLogoCidAttachment } from '../../utils/emailAssets'
+import { getEmailLogoUrl } from '../../utils/emailAssets'
 
 export interface SendEmailOptions {
   to: string
@@ -68,20 +68,24 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
   const fromName = options.fromName || cfg.fromName || 'AgendaPro Académico'
   const fromEmail = options.fromEmail || cfg.fromEmail || cfg.user || 'alertas.agendapro@gmail.com'
 
+  // URL pública CDN del logo para incrustación directa en el diseño HTML
+  const logoUrl = getEmailLogoUrl(cfg.appUrl)
+  // Reemplazar referencias legacy cid:logo@agendapro por la URL pública HTTPS de CDN
+  const cleanHtml = (options.html || '').replace(/cid:logo@agendapro/g, logoUrl)
+
+  // Filtrar adjuntos para NO adjuntar el logotipo como archivo descargable (evita que aparezca al pie del correo)
+  const customAttachments = (options.attachments || []).filter(
+    (att) => att.cid !== 'logo@agendapro' && att.filename !== 'logo.png'
+  )
+
   // ─── 1. VÍA BREVO API (HTTPS PUERTO 443 — INMUNE A BLOQUEOS DE RENDER) ─────
   if (isBrevoProvider({ host: cfg.host, pass: effectivePass })) {
     const apiKey = process.env.BREVO_API_KEY || effectivePass
 
-    // Preparar adjuntos para Brevo
+    // Preparar únicamente adjuntos legítimos explícitos (nunca el logo)
     const brevoAttachments: Array<{ name: string; content: string }> = []
 
-    const attachmentsList = options.attachments || []
-    const defaultLogo = getLogoCidAttachment()
-    if (defaultLogo && !attachmentsList.some((a) => a.filename === defaultLogo.filename)) {
-      attachmentsList.push(defaultLogo)
-    }
-
-    for (const att of attachmentsList) {
+    for (const att of customAttachments) {
       if (att.path && fs.existsSync(att.path)) {
         const fileBase64 = fs.readFileSync(att.path).toString('base64')
         brevoAttachments.push({
@@ -111,7 +115,7 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
         },
       ],
       subject: options.subject,
-      htmlContent: options.html,
+      htmlContent: cleanHtml,
       textContent: options.text || undefined,
       ...(brevoAttachments.length > 0 ? { attachment: brevoAttachments } : {}),
     }
@@ -146,7 +150,7 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
       from: `"${fromName}" <${fromEmail}>`,
       to: [options.to],
       subject: options.subject,
-      html: options.html,
+      html: cleanHtml,
       text: options.text || undefined,
     }
 
@@ -195,16 +199,13 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
     },
   } as TransportOptions)
 
-  const logoAtt = getLogoCidAttachment()
-  const attachments = options.attachments || (logoAtt ? [logoAtt] : [])
-
   const info = await transporter.sendMail({
     from: `"${fromName}" <${fromEmail}>`,
     to: options.to,
     subject: options.subject,
-    html: options.html,
+    html: cleanHtml,
     text: options.text,
-    attachments,
+    attachments: customAttachments.length > 0 ? customAttachments : undefined,
   })
 
   console.log(`[EmailTransport] 🔌 Correo despachado exitosamente vía SMTP (${cfg.host}:${cfg.port}) → ${options.to}`)
