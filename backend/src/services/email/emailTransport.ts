@@ -34,6 +34,66 @@ export interface VerifyResult {
   details: Record<string, unknown>
 }
 
+export function isGmailApiProvider(): boolean {
+  return Boolean(
+    process.env.GMAIL_REFRESH_TOKEN &&
+    (process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)
+  )
+}
+
+export async function getGmailAccessToken(): Promise<string> {
+  const clientId = (process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim()
+  const clientSecret = (process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim()
+  const refreshToken = (process.env.GMAIL_REFRESH_TOKEN || '').trim()
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Faltan credenciales para la Gmail API (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN).')
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token',
+  })
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  })
+
+  const data = (await res.json()) as any
+  if (!res.ok || !data.access_token) {
+    throw new Error(`[Google OAuth Error] ${data.error_description || data.error || 'No se pudo obtener el token de acceso'}`)
+  }
+
+  return data.access_token as string
+}
+
+export async function buildRfc822Base64Url(mailOptions: Record<string, any>): Promise<string> {
+  const streamTransporter = nodemailer.createTransport({
+    streamTransport: true,
+    newline: 'windows',
+  } as any)
+
+  return new Promise((resolve, reject) => {
+    streamTransporter.sendMail(mailOptions, (err: Error | null, info: any) => {
+      if (err) return reject(err)
+      if (Buffer.isBuffer(info.message)) {
+        return resolve(info.message.toString('base64url'))
+      }
+      const chunks: Buffer[] = []
+      info.message.on('data', (chunk: Buffer) => chunks.push(chunk))
+      info.message.on('end', () => {
+        const raw = Buffer.concat(chunks)
+        resolve(raw.toString('base64url'))
+      })
+      info.message.on('error', reject)
+    })
+  })
+}
+
 export function isBrevoProvider(cfg: { host?: string; pass?: string }): boolean {
   const host = (cfg.host || '').toLowerCase()
   const pass = (cfg.pass || '').trim()
@@ -57,6 +117,7 @@ export function isResendProvider(cfg: { host?: string; pass?: string }): boolean
 
 /**
  * Envía un correo electrónico a través de la vía óptima:
+ * 0. Gmail REST API (HTTPS Puerto 443) si GMAIL_REFRESH_TOKEN está configurado (Nativo de Google con logo oficial).
  * 1. Brevo HTTPS API (Puerto 443) si la clave inicia con 'xkeysib-' o el host es 'api.brevo.com'.
  * 2. Resend HTTPS API (Puerto 443) si la clave inicia con 're_' o el host es 'resend'.
  * 3. SMTP estándar (Nodemailer) como fallback si se dispone de puertos abiertos.
@@ -80,6 +141,47 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
   const customAttachments = (options.attachments || []).filter(
     (att) => att.cid !== 'logo@agendapro' && att.filename !== 'logo.png'
   )
+
+  // ─── 0. VÍA GMAIL REST API (HTTPS PUERTO 443 — NATIVO DE GOOGLE CON LOGO OFICIAL) ─────
+  if (isGmailApiProvider()) {
+    try {
+      const accessToken = await getGmailAccessToken()
+      const rawBase64Url = await buildRfc822Base64Url({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: options.to,
+        subject: options.subject,
+        html: cleanHtml,
+        text: options.text,
+        attachments: customAttachments.length > 0 ? customAttachments : undefined,
+      })
+
+      const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ raw: rawBase64Url }),
+      })
+
+      const data = (await res.json()) as any
+      if (!res.ok) {
+        const errMsg = data?.error?.message || `Error HTTP ${res.status} desde la API de Gmail`
+        throw new Error(`[Gmail API Error] ${errMsg}`)
+      }
+
+      const messageId = data?.id || `gmail-${Date.now()}`
+      console.log(`[EmailTransport] 🚀 Correo despachado exitosamente vía Gmail REST API (Puerto 443) → ${options.to} [${messageId}]`)
+      return { messageId }
+    } catch (gmailErr: any) {
+      console.error('[EmailTransport] ⚠️ Error en Gmail API:', gmailErr.message)
+      if (!isBrevoProvider({ host: cfg.host, pass: effectivePass }) && !isResendProvider({ host: cfg.host, pass: effectivePass })) {
+        throw gmailErr
+      }
+      console.log('[EmailTransport] Fallback a proveedor secundario (Brevo/Resend)...')
+    }
+  }
 
   // ─── 1. VÍA BREVO API (HTTPS PUERTO 443 — INMUNE A BLOQUEOS DE RENDER) ─────
   if (isBrevoProvider({ host: cfg.host, pass: effectivePass })) {
@@ -222,6 +324,51 @@ export async function verifyEmailTransport(config: VerifyEmailConfig): Promise<V
   const startTime = Date.now()
   const cleanPass = (config.pass || '').trim().replace(/\s+/g, '')
   const cleanHost = (config.host || '').trim().toLowerCase()
+
+  // ─── VERIFICAR GMAIL REST API ──────────────────────────────────────────────
+  if (isGmailApiProvider() || (cleanHost.includes('gmail') && cleanPass.startsWith('1//'))) {
+    try {
+      const accessToken = await getGmailAccessToken()
+      const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+        },
+      })
+      const latencyMs = Date.now() - startTime
+      const data = (await res.json()) as any
+      if (!res.ok) {
+        return {
+          success: false,
+          latencyMs,
+          message: `Fallo de autenticación en Gmail API: ${data?.error?.message || 'Token inválido'}`,
+          details: { provider: 'Gmail REST API', status: res.status, ...data },
+        }
+      }
+
+      return {
+        success: true,
+        latencyMs,
+        message: `¡Conexión exitosa con Gmail API (HTTPS Puerto 443)! Emisor: ${data.emailAddress}`,
+        details: {
+          provider: 'Gmail REST API (Oficial de Google)',
+          email: data.emailAddress,
+          messagesTotal: data.messagesTotal,
+          port: 443,
+          logoOfficial: true,
+        },
+      }
+    } catch (err: unknown) {
+      const latencyMs = Date.now() - startTime
+      const msg = err instanceof Error ? err.message : String(err)
+      return {
+        success: false,
+        latencyMs,
+        message: `Error al conectar con la API de Gmail: ${msg}`,
+        details: { provider: 'Gmail API', error: msg },
+      }
+    }
+  }
 
   // ─── VERIFICAR BREVO API ───────────────────────────────────────────────────
   if (isBrevoProvider({ host: cleanHost, pass: cleanPass })) {

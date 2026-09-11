@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import { smtpStore } from '../../../config/smtpStore'
 import { getEmailLogoUrl } from '../../../utils/emailAssets'
-import { sendEmailMessage, isBrevoProvider, isResendProvider } from '../../email/emailTransport'
+import { sendEmailMessage, isBrevoProvider, isResendProvider, isGmailApiProvider } from '../../email/emailTransport'
 import type { ChannelAdapter, DeliveryResult, NotificationPayload } from '../dispatcher.types'
 
 export class EmailAdapter implements ChannelAdapter {
@@ -51,7 +51,7 @@ export class EmailAdapter implements ChannelAdapter {
 
       const cfg = smtpStore.get()
 
-      if (smtpStore.hasCredentials() || isBrevoProvider(cfg) || isResendProvider(cfg)) {
+      if (smtpStore.hasCredentials() || isBrevoProvider(cfg) || isResendProvider(cfg) || isGmailApiProvider()) {
         const res = await sendEmailMessage({
           to: payload.userEmail,
           toName: payload.userName,
