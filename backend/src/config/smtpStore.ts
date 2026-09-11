@@ -81,9 +81,15 @@ class SmtpConfigStore {
           secure: Boolean((data as any).smtp_secure),
           user: (data as any).smtp_user,
           pass: effectivePass,
-          fromName: (data as any).smtp_from_name || 'AgendaPro Académico',
+          fromName:
+            (data as any).smtp_from_name && !(data as any).smtp_from_name.toLowerCase().includes('nivora')
+              ? (data as any).smtp_from_name
+              : 'AgendaPro Académico',
           fromEmail: (data as any).smtp_from_email || (data as any).smtp_user,
-          appName: (data as any).app_name || this.config.appName,
+          appName:
+            (data as any).app_name && !(data as any).app_name.toLowerCase().includes('nivora')
+              ? (data as any).app_name
+              : this.config.appName,
           ...((data as any).app_url ? { appUrl: (data as any).app_url.replace(/\/$/, '') } : {}),
         })
         this.isLoaded = true

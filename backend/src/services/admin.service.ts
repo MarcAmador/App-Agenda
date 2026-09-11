@@ -731,6 +731,10 @@ export class AdminService {
 
     // Construcción de HTML premium con DaisyUI visual palette
     const logoUrl = getEmailLogoUrl(smtpStore.get().appUrl)
+    const safeAppName = (!memorySettings.app_name || memorySettings.app_name.toLowerCase().includes('nivora'))
+      ? 'AgendaPro Académico'
+      : memorySettings.app_name
+
     const fullHtml = `
 <!DOCTYPE html>
 <html lang="es">
@@ -750,7 +754,7 @@ export class AdminService {
             <td style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding: 32px 28px; text-align: left;">
               <img src="${logoUrl}" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
               <span style="display: inline-block; background-color: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 9999px; margin-bottom: 12px;">
-                ${memorySettings.app_name}
+                ${safeAppName}
               </span>
               <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; line-height: 1.3;">
                 ${headerTitle}

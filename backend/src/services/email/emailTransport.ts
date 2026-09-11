@@ -65,7 +65,10 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
   const cfg = smtpStore.get()
   const effectivePass = (process.env.BREVO_API_KEY || cfg.pass || '').replace(/\s+/g, '')
 
-  const fromName = options.fromName || cfg.fromName || 'AgendaPro Académico'
+  let fromName = options.fromName || cfg.fromName || 'AgendaPro Académico'
+  if (fromName.toLowerCase().includes('nivora')) {
+    fromName = 'AgendaPro Académico'
+  }
   const fromEmail = options.fromEmail || cfg.fromEmail || cfg.user || 'alertas.agendapro@gmail.com'
 
   // URL pública CDN del logo para incrustación directa en el diseño HTML
