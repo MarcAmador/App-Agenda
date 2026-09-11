@@ -11,6 +11,12 @@ export function getLogoCidAttachment() {
   const candidates = [
     path.resolve(__dirname, '../assets/logo.png'),
     path.resolve(__dirname, '../../assets/logo.png'),
+    path.resolve(__dirname, '../../src/assets/logo.png'),
+    path.resolve(__dirname, '../src/assets/logo.png'),
+    path.resolve(process.cwd(), 'src/assets/logo.png'),
+    path.resolve(process.cwd(), 'dist/assets/logo.png'),
+    path.resolve(process.cwd(), 'backend/src/assets/logo.png'),
+    path.resolve(process.cwd(), 'backend/dist/assets/logo.png'),
     path.resolve(__dirname, '../../../frontend/public/logo.png'),
     path.resolve(__dirname, '../../../../frontend/public/logo.png'),
   ]

@@ -788,6 +788,16 @@ export class AdminService {
     }
     const cfg = smtpStore.get()
 
+    if (!cfg.user || !cfg.pass) {
+      const err = new Error(
+        'El servidor SMTP no tiene credenciales configuradas (usuario o contraseña vacíos). ' +
+        'Por favor ingresa al panel Super Admin > Configuración SMTP (/admin/smtp) para guardar tu correo emisor y contraseña de aplicación de 16 caracteres, ' +
+        'o define SMTP_USER y SMTP_PASS en las variables de entorno de tu servidor (Render).'
+      )
+      console.error('[sendTestTemplateEmail] ❌ Error:', err.message)
+      throw err
+    }
+
     // Nodemailer con IPv4 garantizado y pooling
     const transporter = nodemailer.createTransport({
       host: cfg.host,
@@ -936,7 +946,6 @@ export class AdminService {
 
     try {
       const dbPayload = { ...memorySettings }
-      delete (dbPayload as any).app_url
       await supabaseAdmin.from('app_settings').upsert({
         id: 'global_config',
         ...dbPayload,
@@ -972,17 +981,34 @@ export class AdminService {
     pass: string
   }): Promise<{ success: boolean; latencyMs: number; message: string; details: Record<string, unknown> }> {
     const startTime = Date.now()
+
+    // Si la contraseña viene enmascarada (•••) o vacía, usar la guardada en memoria/BD
+    const effectivePass = (config.pass && !config.pass.includes('•'))
+      ? config.pass.replace(/\s+/g, '')
+      : (memorySettings.smtp_pass && !memorySettings.smtp_pass.includes('•'))
+      ? memorySettings.smtp_pass.replace(/\s+/g, '')
+      : smtpStore.get().pass
+
+    if (!config.user || !effectivePass) {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: 'Fallo: Debes ingresar el usuario (correo) y la contraseña de aplicación de 16 caracteres para probar la conexión.',
+        details: { error: 'Credenciales incompletas' },
+      }
+    }
+
     try {
       const transporter = nodemailer.createTransport({
         host: config.host,
         port: Number(config.port),
         secure: Boolean(config.secure),
         auth: {
-          user: config.user,
-          pass: config.pass,
+          user: config.user.trim(),
+          pass: effectivePass,
         },
         family: 4,
-        connectionTimeout: 8000,
+        connectionTimeout: 12000,
       } as TransportOptions)
 
       await transporter.verify()

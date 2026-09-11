@@ -62,20 +62,25 @@ class SmtpConfigStore {
     try {
       const { data } = await supabaseAdmin
         .from('app_settings')
-        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name, smtp_from_email, app_name')
+        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name, smtp_from_email, app_name, app_url')
         .eq('id', 'global_config')
         .maybeSingle()
 
       if (data && data.smtp_user) {
+        const effectivePass = (data.smtp_pass && data.smtp_pass.trim())
+          ? data.smtp_pass.replace(/\s+/g, '')
+          : this.config.pass
+
         this.update({
           host: data.smtp_host || this.config.host,
           port: Number(data.smtp_port) || this.config.port,
           secure: Boolean(data.smtp_secure),
           user: data.smtp_user,
-          pass: (data.smtp_pass || '').replace(/\s+/g, ''),
+          pass: effectivePass,
           fromName: data.smtp_from_name || 'AgendaPro Académico',
           fromEmail: data.smtp_from_email || data.smtp_user,
           appName: data.app_name || this.config.appName,
+          ...(data.app_url ? { appUrl: data.app_url.replace(/\/$/, '') } : {}),
         })
         this.isLoaded = true
         console.log(`[SmtpConfigStore] 📧 Configuración cargada desde BD → Emisor: ${data.smtp_user}`)
