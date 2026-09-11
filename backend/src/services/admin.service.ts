@@ -79,7 +79,7 @@ const DEFAULT_TEMPLATES: EmailTemplateItem[] = [
     body_html: '<p>Te recordamos que la actividad académica <strong>{{title}}</strong> programada para el <strong>{{due_date}}</strong> a las <strong>{{due_time}}</strong> está próxima a cumplirse.</p><p><strong>Cuadrante de Prioridad:</strong> {{priority}}</p>',
     button_text: 'Ver y Gestionar Tarea',
     button_url: '{{action_url}}',
-    footer_text: 'AgendaPro Académico • Notificación automatizada de seguimiento',
+    footer_text: 'AgendaPro • Notificación automatizada de seguimiento',
     available_variables: ['name', 'title', 'due_date', 'due_time', 'priority', 'action_url', 'app_name'],
     is_active: true,
   },
@@ -92,7 +92,7 @@ const DEFAULT_TEMPLATES: EmailTemplateItem[] = [
     body_html: '<p>La actividad docente <strong>{{title}}</strong> alcanzó su fecha límite el <strong>{{due_date}}</strong> y aún no figura como completada.</p><p>Por favor revisa el avance de la tarea o actualiza su estado si ya fue entregada.</p>',
     button_text: 'Actualizar Estado de Tarea',
     button_url: '{{action_url}}',
-    footer_text: 'AgendaPro Académico • Control y seguimiento de plazos',
+    footer_text: 'AgendaPro • Control y seguimiento de plazos',
     available_variables: ['name', 'title', 'due_date', 'priority', 'action_url', 'app_name'],
     is_active: true,
   },
@@ -157,7 +157,7 @@ const DEFAULT_TEMPLATES: EmailTemplateItem[] = [
     body_html: '<p>Aquí tienes el panorama de tu semana académica. Tienes un total de <strong>{{total_week_tasks}}</strong> compromisos agendados. Te recomendamos revisar tus entregas de actas y coordinaciones docentes.</p>',
     button_text: 'Abrir Calendario Semanal',
     button_url: '{{action_url}}',
-    footer_text: 'AgendaPro Académico • Planificación estratégica docente',
+    footer_text: 'AgendaPro • Planificación estratégica docente',
     available_variables: ['name', 'week_range', 'total_week_tasks', 'action_url', 'app_name'],
     is_active: true,
   },
@@ -183,7 +183,7 @@ const DEFAULT_TEMPLATES: EmailTemplateItem[] = [
     body_html: '<p>Se ha realizado un cambio sensible en tu cuenta de AgendaPro (cambio de correo, restablecimiento de contraseña o cierre forzado de sesiones).</p><p>Si no autorizaste este cambio, por favor contacta a soporte de inmediato.</p>',
     button_text: 'Ir al Centro de Seguridad',
     button_url: '{{action_url}}',
-    footer_text: 'AgendaPro Académico • Centro de Confianza y Seguridad',
+    footer_text: 'AgendaPro • Centro de Confianza y Seguridad',
     available_variables: ['name', 'action_details', 'action_url', 'app_name'],
     is_active: true,
   },
@@ -192,7 +192,7 @@ const DEFAULT_TEMPLATES: EmailTemplateItem[] = [
 // ─── En-memoria Store de configuración y plantillas (para resiliencia) ─────────
 
 let memorySettings: AppSettingsData = {
-  app_name: 'AgendaPro Académico',
+  app_name: 'AgendaPro',
   app_logo_url: '',
   app_favicon_url: '',
   app_description: 'Plataforma SaaS de productividad profesional y gestión de agenda académica',
@@ -208,7 +208,7 @@ let memorySettings: AppSettingsData = {
   smtp_secure: false,
   smtp_user: process.env.SMTP_USER || '',
   smtp_pass: process.env.SMTP_PASS || '',
-  smtp_from_name: 'AgendaPro Académico',
+  smtp_from_name: 'AgendaPro',
   smtp_from_email: process.env.SMTP_USER || '',
   daily_email_limit: 500,
   email_retry_attempts: 3,
@@ -713,7 +713,7 @@ export class AdminService {
     let bodyHtml = template.body_html
     let buttonText = template.button_text || 'Ir a la plataforma'
     let buttonUrl = template.button_url || vars.action_url
-    let footerText = template.footer_text || 'AgendaPro Académico'
+    let footerText = template.footer_text || 'AgendaPro'
 
     Object.entries(vars).forEach(([k, v]) => {
       const reg = new RegExp(`{{${k}}}`, 'g')
@@ -731,9 +731,10 @@ export class AdminService {
 
     // Construcción de HTML premium con DaisyUI visual palette
     const logoUrl = getEmailLogoUrl(smtpStore.get().appUrl)
-    const safeAppName = (!memorySettings.app_name || memorySettings.app_name.toLowerCase().includes('nivora'))
-      ? 'AgendaPro Académico'
-      : memorySettings.app_name
+    const rawAppName = String(memorySettings.app_name || '').trim()
+    const safeAppName = (!rawAppName || rawAppName.toLowerCase().includes('nivora') || rawAppName.toLowerCase().includes('académico') || rawAppName.toLowerCase().includes('academico'))
+      ? 'AgendaPro'
+      : rawAppName
 
     const fullHtml = `
 <!DOCTYPE html>
@@ -777,7 +778,7 @@ export class AdminService {
           <tr>
             <td style="background-color: #f1f5f9; padding: 20px 28px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="margin: 0;">${footerText}</p>
-              <p style="margin: 6px 0 0; color: #94a3b8;">Despacho oficial de AgendaPro Académico.</p>
+              <p style="margin: 6px 0 0; color: #94a3b8;">Despacho oficial de AgendaPro.</p>
             </td>
           </tr>
         </table>

@@ -85,7 +85,7 @@ remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
       user: cleanUser,
       pass: cleanPass,
       fromEmail: from || cleanUser,
-      fromName: 'AgendaPro Académico',
+      fromName: 'AgendaPro',
     })
 
     // 3. Persistir en app_settings de Supabase
@@ -98,7 +98,7 @@ remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
         smtp_user: cleanUser,
         smtp_pass: cleanPass,
         smtp_from_email: from || cleanUser,
-        smtp_from_name: 'AgendaPro Académico',
+        smtp_from_name: 'AgendaPro',
         updated_at: new Date().toISOString(),
       })
     } catch (dbErr) {

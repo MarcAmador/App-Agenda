@@ -30,10 +30,10 @@ class SmtpConfigStore {
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER || '',
     pass: (process.env.SMTP_PASS || '').replace(/\s+/g, ''),
-    fromName: 'AgendaPro Académico',
+    fromName: 'AgendaPro',
     fromEmail: process.env.SMTP_USER || '',
     appUrl: (process.env.FRONTEND_URL || process.env.APP_URL || process.env.CORS_ORIGIN || 'http://localhost:5180').replace(/\/$/, ''),
-    appName: 'AgendaPro Académico',
+    appName: 'AgendaPro',
   }
 
   private isLoaded = false
@@ -75,21 +75,25 @@ class SmtpConfigStore {
           ? (data as any).smtp_pass.replace(/\s+/g, '')
           : this.config.pass
 
+        const rawFromName = String((data as any).smtp_from_name || '').trim()
+        const cleanFromName = (!rawFromName || rawFromName.toLowerCase().includes('nivora') || rawFromName.toLowerCase().includes('académico') || rawFromName.toLowerCase().includes('academico'))
+          ? 'AgendaPro'
+          : rawFromName
+
+        const rawAppName = String((data as any).app_name || '').trim()
+        const cleanAppName = (!rawAppName || rawAppName.toLowerCase().includes('nivora') || rawAppName.toLowerCase().includes('académico') || rawAppName.toLowerCase().includes('academico'))
+          ? 'AgendaPro'
+          : rawAppName
+
         this.update({
           host: (data as any).smtp_host || this.config.host,
           port: Number((data as any).smtp_port) || this.config.port,
           secure: Boolean((data as any).smtp_secure),
           user: (data as any).smtp_user,
           pass: effectivePass,
-          fromName:
-            (data as any).smtp_from_name && !(data as any).smtp_from_name.toLowerCase().includes('nivora')
-              ? (data as any).smtp_from_name
-              : 'AgendaPro Académico',
+          fromName: cleanFromName,
           fromEmail: (data as any).smtp_from_email || (data as any).smtp_user,
-          appName:
-            (data as any).app_name && !(data as any).app_name.toLowerCase().includes('nivora')
-              ? (data as any).app_name
-              : this.config.appName,
+          appName: cleanAppName,
           ...((data as any).app_url ? { appUrl: (data as any).app_url.replace(/\/$/, '') } : {}),
         })
         this.isLoaded = true

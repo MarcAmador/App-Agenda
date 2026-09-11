@@ -65,9 +65,9 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
   const cfg = smtpStore.get()
   const effectivePass = (process.env.BREVO_API_KEY || cfg.pass || '').replace(/\s+/g, '')
 
-  let fromName = options.fromName || cfg.fromName || 'AgendaPro Académico'
-  if (fromName.toLowerCase().includes('nivora')) {
-    fromName = 'AgendaPro Académico'
+  let fromName = options.fromName || cfg.fromName || 'AgendaPro'
+  if (fromName.toLowerCase().includes('nivora') || fromName.toLowerCase().includes('académico') || fromName.toLowerCase().includes('academico')) {
+    fromName = 'AgendaPro'
   }
   const fromEmail = options.fromEmail || cfg.fromEmail || cfg.user || 'alertas.agendapro@gmail.com'
 

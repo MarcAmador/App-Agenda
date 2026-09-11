@@ -115,7 +115,7 @@ export default function AdminTemplatesPage() {
       due_time: '16:00',
       priority: 'Urgente e Importante (Q1)',
       action_url: `${import.meta.env.VITE_APP_URL || window.location.origin}/tareas`,
-      app_name: 'AgendaPro Académico',
+      app_name: 'AgendaPro',
       tasks_today_count: '4',
       urgent_tasks_count: '2',
       week_range: '10 al 16 de Septiembre',
@@ -130,7 +130,7 @@ export default function AdminTemplatesPage() {
     let headerTitle = currentTemplate.header_title
     let bodyHtml = currentTemplate.body_html
     let buttonText = currentTemplate.button_text || 'Ir a la plataforma'
-    let footerText = currentTemplate.footer_text || 'AgendaPro Académico'
+    let footerText = currentTemplate.footer_text || 'AgendaPro'
 
     Object.entries(sampleVars).forEach(([k, v]) => {
       const reg = new RegExp(`{{${k}}}`, 'g')
@@ -393,7 +393,7 @@ export default function AdminTemplatesPage() {
                       className="w-6 h-6 rounded-md object-cover bg-white shadow-xs"
                     />
                     <span className="bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-                      AgendaPro Académico
+                      AgendaPro
                     </span>
                   </div>
                   <h2 className="text-base sm:text-lg font-bold leading-snug">
@@ -420,7 +420,7 @@ export default function AdminTemplatesPage() {
                 {/* Footer */}
                 <div className="bg-slate-100 p-3 text-center text-[10px] text-slate-500 border-t border-slate-200">
                   <p className="m-0 font-medium">{typeof previewData === 'object' ? previewData.footerText : ''}</p>
-                  <p className="m-0 mt-1 text-slate-400">Notificación oficial de AgendaPro Académico</p>
+                  <p className="m-0 mt-1 text-slate-400">Notificación oficial de AgendaPro</p>
                 </div>
               </div>
             </div>
