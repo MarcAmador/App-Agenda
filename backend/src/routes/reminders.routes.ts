@@ -8,6 +8,7 @@ import { authMiddleware } from '../middlewares/auth.middleware'
 import { supabaseAdmin } from '../config/supabase'
 import { SendTestNotificationSchema } from '../schemas/preferences.schemas'
 import { notificationDispatcher } from '../services/dispatcher/notification.dispatcher'
+import { verifyEmailTransport } from '../services/email/emailTransport'
 
 import { smtpStore } from '../config/smtpStore'
 
@@ -48,26 +49,17 @@ remindersRouter.post('/smtp-configure', async (req: Request, res: Response) => {
     const cleanHost = (host as string)?.trim() || 'smtp.gmail.com'
     const isGmail = cleanHost.includes('gmail') || cleanUser.includes('@gmail.com')
 
-    // Verificar en vivo con nodemailer (forzando IPv4)
-    const testTransporter = nodemailer.createTransport({
+    // Verificar en vivo el transporte (soporta Brevo HTTPS y SMTP)
+    const verifyResult = await verifyEmailTransport({
       host: cleanHost,
       port: Number(port) || 587,
       secure: secure === true || secure === 'true',
-      family: 4,
-      auth: { user: cleanUser, pass: cleanPass },
-    } as any)
+      user: cleanUser,
+      pass: cleanPass,
+    })
 
-    try {
-      await testTransporter.verify()
-    } catch (verifyErr) {
-      const msg = verifyErr instanceof Error ? verifyErr.message : 'Fallo en la conexión SMTP'
-      let friendlyError = msg
-      if (msg.includes('535') || msg.includes('BadCredentials') || msg.includes('Username and Password not accepted')) {
-        friendlyError = 'Google rechazó las credenciales (Error 535): Si usas Gmail, debes generar una "Contraseña de aplicación" de 16 caracteres en Google (Seguridad > Verificación en 2 pasos > Contraseñas de aplicaciones), NO la contraseña habitual.'
-      } else if (msg.includes('ECONNREFUSED')) {
-        friendlyError = 'No se pudo conectar con el servidor SMTP. Verifica el host y el puerto.'
-      }
-      return res.status(422).json({ error: friendlyError })
+    if (!verifyResult.success) {
+      return res.status(422).json({ error: verifyResult.message })
     }
 
     // 1. Actualizar memoria env

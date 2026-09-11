@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import { smtpStore } from '../../../config/smtpStore'
 import { getLogoCidAttachment } from '../../../utils/emailAssets'
+import { sendEmailMessage, isBrevoProvider, isResendProvider } from '../../email/emailTransport'
 import type { ChannelAdapter, DeliveryResult, NotificationPayload } from '../dispatcher.types'
 
 export class EmailAdapter implements ChannelAdapter {
@@ -41,37 +42,53 @@ export class EmailAdapter implements ChannelAdapter {
       const html = this.generateHtml(payload)
       const text = this.generatePlainText(payload)
 
-      const cfg = smtpStore.get()
-      const fromAddress = `"${cfg.fromName}" <${cfg.fromEmail || cfg.user || 'notificaciones@agendapro.edu'}>`
-
-      const logoAtt = getLogoCidAttachment()
-      const attachments = logoAtt ? [logoAtt] : []
-
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to: payload.userEmail,
-        subject,
-        text,
-        html,
-        attachments,
-      })
-
+      let messageId: string
       let previewUrl: string | undefined
 
-      if (isEthereal) {
-        const testUrl = nodemailer.getTestMessageUrl(info)
-        if (testUrl) {
-          previewUrl = testUrl as string
-          console.log(`[EmailAdapter] 🌐 Correo enviado vía Ethereal. Ver en: ${previewUrl}`)
-        }
+      if (!smtpStore.isDatabaseLoaded()) {
+        await smtpStore.loadFromDatabase()
+      }
+
+      const cfg = smtpStore.get()
+
+      if (smtpStore.hasCredentials() || isBrevoProvider(cfg) || isResendProvider(cfg)) {
+        const res = await sendEmailMessage({
+          to: payload.userEmail,
+          toName: payload.userName,
+          subject,
+          html,
+          text,
+        })
+        messageId = res.messageId
       } else {
-        console.log(`[EmailAdapter] ✉️ Correo enviado exitosamente vía SMTP real a ${payload.userEmail}`)
+        const { transporter, isEthereal } = await this.getTransporter()
+        const fromAddress = `"${cfg.fromName}" <${cfg.fromEmail || cfg.user || 'notificaciones@agendapro.edu'}>`
+        const logoAtt = getLogoCidAttachment()
+        const attachments = logoAtt ? [logoAtt] : []
+
+        const info = await transporter.sendMail({
+          from: fromAddress,
+          to: payload.userEmail,
+          subject,
+          text,
+          html,
+          attachments,
+        })
+        messageId = info.messageId
+
+        if (isEthereal) {
+          const testUrl = nodemailer.getTestMessageUrl(info)
+          if (testUrl) {
+            previewUrl = testUrl as string
+            console.log(`[EmailAdapter] 🌐 Correo enviado vía Ethereal. Ver en: ${previewUrl}`)
+          }
+        }
       }
 
       return {
         channel: this.channel,
         success: true,
-        messageId: info.messageId,
+        messageId,
         previewUrl,
         sentAt,
       }

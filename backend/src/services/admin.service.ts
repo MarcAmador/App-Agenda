@@ -4,6 +4,7 @@ import { SUPER_ADMIN_EMAILS } from '../middlewares/admin.middleware'
 import { smtpStore } from '../config/smtpStore'
 import { notificationDispatcher } from './dispatcher/notification.dispatcher'
 import { getLogoCidAttachment } from '../utils/emailAssets'
+import { sendEmailMessage, verifyEmailTransport } from './email/emailTransport'
 
 // ─── Tipos e Interfaces ────────────────────────────────────────────────────────
 
@@ -798,33 +799,12 @@ export class AdminService {
       throw err
     }
 
-    // Nodemailer con IPv4 garantizado y pooling
-    const transporter = nodemailer.createTransport({
-      host: cfg.host,
-      port: cfg.port,
-      secure: cfg.secure,
-      auth: {
-        user: cfg.user,
-        pass: cfg.pass.replace(/\s+/g, ''),
-      },
-      family: 4,
-      pool: true,
-      maxConnections: 3,
-      connectionTimeout: 25000,
-      greetingTimeout: 25000,
-      socketTimeout: 30000,
-    } as TransportOptions)
-
     try {
-      const logoAtt = getLogoCidAttachment()
-      const attachments = logoAtt ? [logoAtt] : []
-
-      const info = await transporter.sendMail({
-        from: `"${cfg.fromName || 'AgendaPro Académico'}" <${cfg.fromEmail || cfg.user}>`,
+      const info = await sendEmailMessage({
         to: recipientEmail,
+        toName: vars.name || recipientEmail.split('@')[0],
         subject,
         html: fullHtml,
-        attachments,
       })
 
       // Registrar en system_email_logs del centro de control
@@ -998,44 +978,13 @@ export class AdminService {
       }
     }
 
-    try {
-      const transporter = nodemailer.createTransport({
-        host: config.host,
-        port: Number(config.port),
-        secure: Boolean(config.secure),
-        auth: {
-          user: config.user.trim(),
-          pass: effectivePass,
-        },
-        family: 4,
-        connectionTimeout: 12000,
-      } as TransportOptions)
-
-      await transporter.verify()
-      const latencyMs = Date.now() - startTime
-
-      return {
-        success: true,
-        latencyMs,
-        message: `Conexión SMTP exitosa con ${config.host}:${config.port} en ${latencyMs}ms.`,
-        details: {
-          host: config.host,
-          port: config.port,
-          user: config.user,
-          protocol: config.secure ? 'SMTPS (SSL)' : 'STARTTLS',
-          family: 'IPv4',
-        },
-      }
-    } catch (err: unknown) {
-      const latencyMs = Date.now() - startTime
-      const errorMessage = err instanceof Error ? err.message : String(err)
-      return {
-        success: false,
-        latencyMs,
-        message: `Fallo de conexión SMTP: ${errorMessage}`,
-        details: { error: errorMessage },
-      }
-    }
+    return await verifyEmailTransport({
+      host: config.host,
+      port: Number(config.port) || 587,
+      secure: Boolean(config.secure),
+      user: config.user,
+      pass: effectivePass,
+    })
   }
 
   /**
@@ -1178,27 +1127,13 @@ export class AdminService {
     }
 
     // Reintentar despacho real
-    const cfg = smtpStore.get()
-    const transporter = nodemailer.createTransport({
-      host: cfg.host,
-      port: cfg.port,
-      secure: cfg.secure,
-      auth: { user: cfg.user, pass: cfg.pass.replace(/\s+/g, '') },
-      family: 4,
-      pool: true,
-      maxConnections: 3,
-      connectionTimeout: 25000,
-      greetingTimeout: 25000,
-      socketTimeout: 30000,
-    } as any)
-
     try {
-      await transporter.sendMail({
-        from: `"${cfg.fromName || 'AgendaPro Académico'}" <${cfg.fromEmail || cfg.user}>`,
+      await sendEmailMessage({
         to: log.recipient_email,
+        toName: log.recipient_name,
         subject: log.subject,
-        text: `Reintento de despacho: ${log.subject}`,
         html: `<p>Este es un reintento de entrega oficial para la notificación: <strong>${log.subject}</strong>.</p>`,
+        text: `Reintento de despacho: ${log.subject}`,
       })
 
       await supabaseAdmin

@@ -150,15 +150,83 @@ export default function AdminSmtpPage() {
               Parámetros de Conexión del Servidor
             </h2>
 
+            {/* Selector de Proveedor Rápido */}
+            <div className="bg-base-200/60 p-3 rounded-xl border border-base-300 space-y-2">
+              <span className="text-xs font-bold text-base-content/70 block">
+                Selecciona tu proveedor de correo:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({
+                      ...settings,
+                      smtp_host: 'api.brevo.com',
+                      smtp_port: 443,
+                      smtp_secure: false,
+                    })
+                  }}
+                  className={`btn btn-xs ${
+                    settings.smtp_host.includes('brevo')
+                      ? 'btn-primary shadow-sm'
+                      : 'btn-outline'
+                  }`}
+                >
+                  🚀 Brevo API (Gratis · Puerto 443 HTTPS)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({
+                      ...settings,
+                      smtp_host: 'smtp.gmail.com',
+                      smtp_port: 587,
+                      smtp_secure: false,
+                    })
+                  }}
+                  className={`btn btn-xs ${
+                    settings.smtp_host.includes('gmail')
+                      ? 'btn-primary shadow-sm'
+                      : 'btn-outline'
+                  }`}
+                >
+                  ✉️ Gmail SMTP (Puerto 587)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({
+                      ...settings,
+                      smtp_host: 'api.resend.com',
+                      smtp_port: 443,
+                      smtp_secure: false,
+                    })
+                  }}
+                  className={`btn btn-xs ${
+                    settings.smtp_host.includes('resend')
+                      ? 'btn-primary shadow-sm'
+                      : 'btn-outline'
+                  }`}
+                >
+                  ⚡ Resend API (Puerto 443)
+                </button>
+              </div>
+              {settings.smtp_host.includes('brevo') && (
+                <p className="text-[11px] text-success font-medium flex items-center gap-1 mt-1">
+                  ✓ Ideal para el plan gratuito de Render: Se comunica por HTTPS (puerto 443) y envía 300 correos diarios gratis desde tu cuenta de Gmail.
+                </p>
+              )}
+            </div>
+
             {/* Servidor Host y Puerto */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2 form-control">
                 <label className="label py-1">
-                  <span className="label-text font-bold text-xs">Host SMTP:</span>
+                  <span className="label-text font-bold text-xs">Host o Proveedor:</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="smtp.gmail.com o mail.midominio.com"
+                  placeholder="api.brevo.com o smtp.gmail.com"
                   value={settings.smtp_host}
                   onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
                   className="input input-bordered input-sm font-mono text-xs w-full"
@@ -171,7 +239,7 @@ export default function AdminSmtpPage() {
                 </label>
                 <input
                   type="number"
-                  placeholder="587 o 465"
+                  placeholder="443 o 587"
                   value={settings.smtp_port}
                   onChange={(e) => setSettings({ ...settings, smtp_port: Number(e.target.value) })}
                   className="input input-bordered input-sm font-mono text-xs w-full"
@@ -179,33 +247,39 @@ export default function AdminSmtpPage() {
               </div>
             </div>
 
-            {/* SSL/TLS Toggle */}
-            <div className="form-control bg-base-200/50 p-3 rounded-xl border border-base-300">
-              <label className="label cursor-pointer p-0">
-                <div>
-                  <span className="label-text font-bold text-xs block">Seguridad SSL / TLS Directo (Puerto 465):</span>
-                  <span className="text-[11px] text-base-content/60">
-                    Desactívalo si usas el puerto 587 (STARTTLS, recomendado para Gmail y Outlook).
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settings.smtp_secure}
-                  onChange={(e) => setSettings({ ...settings, smtp_secure: e.target.checked })}
-                  className="toggle toggle-sm toggle-primary"
-                />
-              </label>
-            </div>
+            {/* SSL/TLS Toggle (solo para SMTP directo) */}
+            {!settings.smtp_host.includes('brevo') && !settings.smtp_host.includes('resend') && (
+              <div className="form-control bg-base-200/50 p-3 rounded-xl border border-base-300">
+                <label className="label cursor-pointer p-0">
+                  <div>
+                    <span className="label-text font-bold text-xs block">Seguridad SSL / TLS Directo (Puerto 465):</span>
+                    <span className="text-[11px] text-base-content/60">
+                      Desactívalo si usas el puerto 587 (STARTTLS, recomendado para Gmail y Outlook).
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.smtp_secure}
+                    onChange={(e) => setSettings({ ...settings, smtp_secure: e.target.checked })}
+                    className="toggle toggle-sm toggle-primary"
+                  />
+                </label>
+              </div>
+            )}
 
-            {/* Usuario y Contraseña de Aplicación */}
+            {/* Usuario y Contraseña / API Key */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="form-control">
                 <label className="label py-1">
-                  <span className="label-text font-bold text-xs">Usuario / Correo Autenticación:</span>
+                  <span className="label-text font-bold text-xs">
+                    {settings.smtp_host.includes('brevo')
+                      ? 'Correo Remitente Registrado en Brevo:'
+                      : 'Usuario / Correo Autenticación:'}
+                  </span>
                 </label>
                 <input
                   type="email"
-                  placeholder="notificaciones@agendapro.com"
+                  placeholder="alertas.agendapro@gmail.com"
                   value={settings.smtp_user}
                   onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
                   className="input input-bordered input-sm font-medium text-xs w-full"
@@ -216,12 +290,22 @@ export default function AdminSmtpPage() {
                 <label className="label py-1">
                   <span className="label-text font-bold text-xs flex items-center gap-1">
                     <KeyRound className="w-3 h-3 text-primary" />
-                    Contraseña de Aplicación:
+                    {settings.smtp_host.includes('brevo')
+                      ? 'API Key de Brevo (xkeysib-...):'
+                      : settings.smtp_host.includes('resend')
+                      ? 'API Key de Resend (re_...):'
+                      : 'Contraseña de Aplicación:'}
                   </span>
                 </label>
                 <input
                   type="password"
-                  placeholder="••••••••••••••••"
+                  placeholder={
+                    settings.smtp_host.includes('brevo')
+                      ? 'xkeysib-...'
+                      : settings.smtp_host.includes('resend')
+                      ? 're_...'
+                      : '••••••••••••••••'
+                  }
                   value={settings.smtp_pass || ''}
                   onChange={(e) => setSettings({ ...settings, smtp_pass: e.target.value })}
                   className="input input-bordered input-sm font-mono text-xs w-full"
@@ -311,16 +395,24 @@ export default function AdminSmtpPage() {
           <div className="card bg-base-100 border border-base-300 shadow-sm p-5 space-y-3 text-xs">
             <h3 className="font-bold text-sm flex items-center gap-2 text-primary">
               <Info className="w-4 h-4" />
-              Recomendación para un Correo Dedicado
+              ¿Cómo configurar Brevo gratis para enviar desde tu Gmail?
             </h3>
             <p className="text-base-content/80 leading-relaxed">
-              Para tener un correo institucional exclusivo (ej. <code className="bg-base-200 px-1 py-0.5 rounded font-mono">notificaciones@tucolegio.edu</code> o <code className="bg-base-200 px-1 py-0.5 rounded font-mono">agenda.app.notificaciones@gmail.com</code>):
+              El plan gratuito de Render bloquea los puertos SMTP estándar (25, 465 y 587). Para enviar gratis sin pagar Render:
             </p>
-            <ol className="list-decimal list-inside space-y-1.5 text-base-content/70">
-              <li>Crea la cuenta de Google dedicada para la aplicación.</li>
-              <li>Activa <strong>Verificación en 2 pasos</strong> en esa cuenta.</li>
-              <li>Genera una <strong>Contraseña de Aplicación</strong> de 16 caracteres.</li>
-              <li>Ingrésala arriba y guarda los cambios. Tu correo personal quedará completamente libre de despachos automáticos.</li>
+            <ol className="list-decimal list-inside space-y-2 text-base-content/80">
+              <li>
+                Crea una cuenta gratuita en <strong><a href="https://www.brevo.com" target="_blank" rel="noreferrer" className="link link-primary font-bold">brevo.com</a></strong> (te da 300 correos gratis al día).
+              </li>
+              <li>
+                Ve a tu perfil en Brevo &gt; <strong>Remitentes e IPs</strong> (Senders) &gt; Añade <code className="bg-base-200 px-1 py-0.5 rounded font-mono">alertas.agendapro@gmail.com</code>. Te llegará un correo de confirmación de 6 dígitos para verificar que eres el dueño.
+              </li>
+              <li>
+                Ve a tu perfil en Brevo &gt; <strong>SMTP y API</strong> &gt; pestaña <strong>Claves de API</strong> y genera una nueva clave (inicia con <code className="bg-base-200 px-1 py-0.5 rounded font-mono">xkeysib-...</code>).
+              </li>
+              <li>
+                En el formulario de la izquierda, haz clic en el botón <strong>"Brevo API (Gratis · Puerto 443 HTTPS)"</strong>, pega la clave en el campo <strong>API Key</strong> y haz clic en <strong>Diagnosticar Conexión</strong>.
+              </li>
             </ol>
           </div>
         </div>
