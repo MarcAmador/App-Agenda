@@ -60,30 +60,34 @@ class SmtpConfigStore {
   /** Carga la configuración directamente desde Supabase `app_settings` */
   async loadFromDatabase(): Promise<void> {
     try {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from('app_settings')
-        .select('smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name, smtp_from_email, app_name, app_url')
+        .select('*')
         .eq('id', 'global_config')
         .maybeSingle()
 
-      if (data && data.smtp_user) {
-        const effectivePass = (data.smtp_pass && data.smtp_pass.trim())
-          ? data.smtp_pass.replace(/\s+/g, '')
+      if (error) {
+        console.warn('[SmtpConfigStore] Advertencia al consultar app_settings:', error.message)
+      }
+
+      if (data && (data as any).smtp_user) {
+        const effectivePass = ((data as any).smtp_pass && (data as any).smtp_pass.trim())
+          ? (data as any).smtp_pass.replace(/\s+/g, '')
           : this.config.pass
 
         this.update({
-          host: data.smtp_host || this.config.host,
-          port: Number(data.smtp_port) || this.config.port,
-          secure: Boolean(data.smtp_secure),
-          user: data.smtp_user,
+          host: (data as any).smtp_host || this.config.host,
+          port: Number((data as any).smtp_port) || this.config.port,
+          secure: Boolean((data as any).smtp_secure),
+          user: (data as any).smtp_user,
           pass: effectivePass,
-          fromName: data.smtp_from_name || 'AgendaPro Académico',
-          fromEmail: data.smtp_from_email || data.smtp_user,
-          appName: data.app_name || this.config.appName,
-          ...(data.app_url ? { appUrl: data.app_url.replace(/\/$/, '') } : {}),
+          fromName: (data as any).smtp_from_name || 'AgendaPro Académico',
+          fromEmail: (data as any).smtp_from_email || (data as any).smtp_user,
+          appName: (data as any).app_name || this.config.appName,
+          ...((data as any).app_url ? { appUrl: (data as any).app_url.replace(/\/$/, '') } : {}),
         })
         this.isLoaded = true
-        console.log(`[SmtpConfigStore] 📧 Configuración cargada desde BD → Emisor: ${data.smtp_user}`)
+        console.log(`[SmtpConfigStore] 📧 Configuración cargada desde BD → Emisor: ${(data as any).smtp_user}`)
       }
     } catch (err) {
       console.warn('[SmtpConfigStore] Advertencia al sincronizar con BD:', err)
