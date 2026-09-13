@@ -1,21 +1,23 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { DataTable, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 import { Dropdown } from 'primereact/dropdown'
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog'
 import { Tooltip } from 'primereact/tooltip'
-import { OverlayPanel } from 'primereact/overlaypanel'
 import { Calendar } from 'primereact/calendar'
 import {
   Pencil, Trash2, Archive, CheckCircle2, Clock, Ban,
   ChevronDown, MessageSquare, Check, ListChecks, ExternalLink,
-  Folder, Video, BookOpen, Globe
+  Folder, Video, BookOpen, Globe, Eye
 } from 'lucide-react'
 
 import type { Task, TaskStatus } from '@/types/database.types'
-import { STATUS_META } from '@/types/database.types'
+import { STATUS_META, PRIORITY_META } from '@/types/database.types'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
+import { soundEngine } from '@/utils/audioEffects'
+import { triggerConfetti } from '@/utils/confetti'
+import { shareTaskViaWhatsApp } from '@/utils/whatsappShare'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,7 @@ interface TaskDataTableProps {
   onDelete: (id: string) => void
   onStatusChange: (id: string, status: TaskStatus) => void
   onArchive: (id: string) => void
+  onViewDetails?: (task: Task) => void
 }
 
 const STATUS_CHANGE_OPTIONS: { label: string; value: TaskStatus; icon: React.ElementType }[] = [
@@ -62,11 +65,11 @@ export function TaskDataTable({
   onDelete,
   onStatusChange,
   onArchive,
+  onViewDetails,
 }: TaskDataTableProps) {
   const [selectedTasks, setSelectedTasks] = useState<Task[]>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [rows, setRows] = useState(15)
-  const statusPanelRef = useRef<{ [key: string]: OverlayPanel | null }>({})
 
   // ─── Templates de columnas ────────────────────────────────────────────────
 
@@ -77,9 +80,14 @@ export function TaskDataTable({
 
     return (
       <div className="flex flex-col gap-1 max-w-xs">
-        <span className="font-medium text-sm text-base-content leading-tight truncate" title={row.title}>
+        <button
+          type="button"
+          onClick={() => onViewDetails?.(row)}
+          className="text-left font-medium text-sm text-base-content leading-tight truncate hover:text-primary hover:underline transition-colors"
+          title={`Ver detalles de: ${row.title}`}
+        >
           {row.title}
-        </span>
+        </button>
         <div className="flex items-center gap-1.5 flex-wrap">
           {row.category && (
             <span className="text-xs text-base-content/50">{row.category}</span>
@@ -136,47 +144,50 @@ export function TaskDataTable({
   }
 
   const statusTemplate = (row: Task) => {
-    const panelId = `status-panel-${row.id}`
     return (
-      <div className="flex items-center gap-1">
-        <StatusBadge status={row.status} />
-        <button
-          className="btn btn-ghost btn-xs btn-circle opacity-0 group-hover/row:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation()
-            statusPanelRef.current[row.id]?.toggle(e)
-          }}
+      <div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
+        <div
+          tabIndex={0}
+          role="button"
+          className="flex items-center gap-1 cursor-pointer group/badge py-1 px-1.5 rounded-lg hover:bg-base-200 transition-colors"
           title="Cambiar estado"
         >
-          <ChevronDown className="w-3 h-3" />
-        </button>
-        <OverlayPanel
-          ref={(el) => { statusPanelRef.current[row.id] = el }}
-          id={panelId}
-          style={{ borderRadius: '0.75rem', minWidth: '10rem' }}
+          <StatusBadge status={row.status} />
+          <ChevronDown className="w-3 h-3 text-base-content/40 group-hover/badge:text-base-content transition-colors" />
+        </div>
+        <ul
+          tabIndex={0}
+          className="dropdown-content z-50 menu p-1.5 shadow-xl bg-base-100 border border-base-200 rounded-box w-44 gap-0.5"
         >
-          <div className="flex flex-col gap-0.5 p-1">
-            {STATUS_CHANGE_OPTIONS.map(({ label, value }) => (
+          {STATUS_CHANGE_OPTIONS.map(({ label, value }) => (
+            <li key={value}>
               <button
-                key={value}
+                type="button"
                 disabled={row.status === value}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (value === 'completada' && row.status !== 'completada') {
+                    soundEngine.playSuccessChime()
+                    triggerConfetti()
+                  }
                   onStatusChange(row.id, value)
-                  statusPanelRef.current[row.id]?.hide()
+                  if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur()
+                  }
                 }}
-                className={[
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors',
-                  row.status === value
-                    ? 'bg-base-200 text-base-content/50 cursor-not-allowed'
-                    : 'hover:bg-base-200 text-base-content cursor-pointer',
-                ].join(' ')}
+                className={`flex items-center justify-between py-1.5 px-2.5 text-xs rounded-lg ${
+                  row.status === value ? 'active font-semibold' : ''
+                }`}
               >
-                <span className={`badge badge-xs ${STATUS_META[value].badgeClass}`} />
-                {label}
+                <div className="flex items-center gap-2">
+                  <span className={`badge badge-xs ${STATUS_META[value].badgeClass}`} />
+                  <span>{label}</span>
+                </div>
+                {row.status === value && <Check className="w-3.5 h-3.5 text-primary" />}
               </button>
-            ))}
-          </div>
-        </OverlayPanel>
+            </li>
+          ))}
+        </ul>
       </div>
     )
   }
@@ -218,10 +229,30 @@ export function TaskDataTable({
             : 'text-base-content/40 hover:text-success hover:bg-base-200',
         ].join(' ')}
         title={row.status === 'completada' ? 'Marcar como pendiente' : 'Marcar como completada'}
-        onClick={() => onStatusChange(row.id, row.status === 'completada' ? 'pendiente' : 'completada')}
+        onClick={() => {
+          const nextStatus = row.status === 'completada' ? 'pendiente' : 'completada'
+          if (nextStatus === 'completada') {
+            soundEngine.playSuccessChime()
+            triggerConfetti()
+          }
+          onStatusChange(row.id, nextStatus)
+        }}
       >
         <Check className="w-3.5 h-3.5" />
       </button>
+
+      {/* Ver Detalles */}
+      {onViewDetails && (
+        <button
+          type="button"
+          id="tour-task-detail-btn"
+          className="btn btn-ghost btn-xs btn-circle text-primary hover:bg-primary/10"
+          title="Ver detalles de la tarea"
+          onClick={() => onViewDetails(row)}
+        >
+          <Eye className="w-3.5 h-3.5" />
+        </button>
+      )}
 
       {/* Editar */}
       <button
@@ -239,14 +270,14 @@ export function TaskDataTable({
         className="btn btn-ghost btn-xs btn-circle text-success hover:bg-success/10"
         title="Enviar recordatorio por WhatsApp"
         onClick={() => {
-          let msg = `⏰ *Recordatorio AgendaPro*\n\n📌 *Tarea:* ${row.title}\n`
-          if (row.description) msg += `📝 *Detalles:* ${row.description}\n`
-          if (row.due_date) {
-            msg += `📅 *Vencimiento:* ${row.due_date}${row.due_time ? ` a las ${row.due_time.substring(0, 5)}` : ''}\n`
-          }
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5180'
-          msg += `🔗 *Ver en portal:* ${baseUrl}/tareas`
-          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
+          shareTaskViaWhatsApp({
+            title: row.title,
+            description: row.description,
+            dueDate: row.due_date,
+            dueTime: row.due_time,
+            priorityLabel: PRIORITY_META[row.priority]?.label ?? row.priority,
+            category: row.category,
+          })
         }}
       >
         <MessageSquare className="w-3.5 h-3.5" />
@@ -281,7 +312,7 @@ export function TaskDataTable({
         <Trash2 className="w-3.5 h-3.5 text-error/70 hover:text-error transition-colors" />
       </button>
     </div>
-  ), [onEdit, onDelete, onArchive])
+  ), [onStatusChange, onEdit, onDelete, onArchive, onViewDetails])
 
   // ─── Header del DataTable ─────────────────────────────────────────────────
 

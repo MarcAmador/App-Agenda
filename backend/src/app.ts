@@ -10,7 +10,6 @@ import { tasksRouter } from './routes/tasks.routes'
 import { preferencesRouter } from './routes/preferences.routes'
 import { remindersRouter } from './routes/reminders.routes'
 import { adminRouter } from './routes/admin.routes'
-import { smtpStore } from './config/smtpStore'
 
 const app = express()
 
@@ -21,12 +20,19 @@ app.set('trust proxy', 1)
 app.use(helmet())
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  env.CORS_ORIGIN,
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[]
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === env.CORS_ORIGIN) {
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else if (env.NODE_ENV !== 'production') {
       callback(null, true)
     } else {
-      callback(null, true)
+      callback(new Error('Acceso no permitido por política CORS'))
     }
   },
   credentials: true,
@@ -34,15 +40,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200,
 }))
-
-// ─── Auto-detección dinámica de URL pública del frontend ─────────────────────
-app.use((req, _res, next) => {
-  const origin = (req.headers.origin as string) || (req.headers.referer as string)
-  if (origin) {
-    smtpStore.autoDetectAppUrl(origin)
-  }
-  next()
-})
 
 // ─── Rate Limiting global ────────────────────────────────────────────────────
 const limiter = rateLimit({
@@ -54,9 +51,9 @@ const limiter = rateLimit({
 })
 app.use(limiter)
 
-// ─── Body parsing ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '1mb' }))
-app.use(express.urlencoded({ extended: true }))
+// ─── Body parsing (5mb para soportar logos y configuraciones de branding) ───
+app.use(express.json({ limit: '5mb' }))
+app.use(express.urlencoded({ extended: true, limit: '5mb' }))
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

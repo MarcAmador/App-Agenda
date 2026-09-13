@@ -60,17 +60,36 @@ export function useCreateTask() {
   })
 }
 
-/** Hook para actualizar una tarea */
+/** Hook para actualizar una tarea con optimistic UI */
 export function useUpdateTask() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateTaskInput }) =>
       updateTask(id, input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
-      toast.success('Tarea actualizada')
+    onMutate: async ({ id, input }) => {
+      await qc.cancelQueries({ queryKey: taskKeys.all })
+      qc.setQueriesData(
+        { queryKey: taskKeys.lists() },
+        (old: { data: Task[]; count: number } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            data: old.data.map((t) => (t.id === id ? { ...t, ...input } : t)),
+          }
+        }
+      )
     },
-    onError: () => toast.error('Error al actualizar la tarea'),
+    onSuccess: (_data, { input }) => {
+      qc.invalidateQueries({ queryKey: taskKeys.all })
+      // Solo mostrar toast genérico si no es una actualización rápida de subtareas (el modal ya muestra feedback específico)
+      if (!input.checklist) {
+        toast.success('Tarea actualizada')
+      }
+    },
+    onError: () => {
+      qc.invalidateQueries({ queryKey: taskKeys.all })
+      toast.error('Error al actualizar la tarea')
+    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: taskKeys.all })
     },

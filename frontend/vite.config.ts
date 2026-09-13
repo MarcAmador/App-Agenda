@@ -20,4 +20,31 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      external: ['chart.js/auto'],
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react-dom') || id.includes('react-router-dom') || id.includes('/react/')) {
+              return 'vendor-react'
+            }
+            if (id.includes('primereact')) {
+              return 'vendor-primereact'
+            }
+            if (id.includes('@tanstack')) {
+              return 'vendor-query'
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase'
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons'
+            }
+          }
+        },
+      },
+    },
+  },
 })

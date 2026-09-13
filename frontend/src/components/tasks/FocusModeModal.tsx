@@ -24,6 +24,9 @@ import {
 } from 'lucide-react'
 import type { Task, TaskStatus, UpdateTaskInput } from '@/types/database.types'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
+import { useFocusTimer } from '@/context/FocusTimerContext'
+import { soundEngine } from '@/utils/audioEffects'
+import { triggerConfetti } from '@/utils/confetti'
 import toast from 'react-hot-toast'
 
 interface FocusModeModalProps {
@@ -98,36 +101,23 @@ export function FocusModeModal({
     .sort((a, b) => b.score - a.score)
 
   const [currentIndex, setCurrentIndex] = useState(0)
+  const focusTimer = useFocusTimer()
 
-  // Temporizador Pomodoro de 25 minutos (1500 segundos)
-  const POMODORO_DEFAULT_SECONDS = 25 * 60
-  const [secondsLeft, setSecondsLeft] = useState(POMODORO_DEFAULT_SECONDS)
-  const [isTimerRunning, setIsTimerRunning] = useState(false)
-
-  // Reiniciar índice cuando se abre el modal
+  // Sincronizar índice con la tarea activa del temporizador si ya está en ejecución
   useEffect(() => {
-    if (visible) {
-      setCurrentIndex(0)
-      setSecondsLeft(POMODORO_DEFAULT_SECONDS)
-      setIsTimerRunning(false)
+    if (visible && focusTimer.activeTask) {
+      const foundIdx = activeTasks.findIndex((t) => t.task.id === focusTimer.activeTask!.id)
+      if (foundIdx !== -1) {
+        setCurrentIndex(foundIdx)
+      }
     }
-  }, [visible])
+  }, [visible, focusTimer.activeTask])
 
-  // Lógica del Temporizador Pomodoro
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
-    if (isTimerRunning && secondsLeft > 0) {
-      interval = setInterval(() => {
-        setSecondsLeft((prev) => prev - 1)
-      }, 1000)
-    } else if (secondsLeft === 0 && isTimerRunning) {
-      setIsTimerRunning(false)
-      toast.success('🎉 ¡Bloque de enfoque completado! Tómate un breve descanso.')
+    if (activeTasks.length > 0 && currentIndex >= activeTasks.length) {
+      setCurrentIndex(Math.max(0, activeTasks.length - 1))
     }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [isTimerRunning, secondsLeft])
+  }, [activeTasks.length, currentIndex])
 
   const currentCandidate = activeTasks[currentIndex]?.task || null
 
@@ -139,15 +129,22 @@ export function FocusModeModal({
 
   const handleCompleteCurrent = () => {
     if (!currentCandidate) return
-    onUpdateStatus(currentCandidate.id, 'completada')
-    toast.success('🏆 ¡Excelente trabajo! Tarea marcada como completada.', {
-      duration: 3500,
-      icon: '👏',
-    })
-    // Avanzar a la siguiente tarea disponible
-    if (activeTasks.length <= 1) {
-      setCurrentIndex(0)
+
+    if (focusTimer.activeTask?.id === currentCandidate.id) {
+      focusTimer.completeCurrentTask()
+    } else {
+      onUpdateStatus(currentCandidate.id, 'completada')
+      toast.success('🏆 ¡Excelente trabajo! Tarea marcada como completada.', {
+        duration: 3500,
+        icon: '👏',
+      })
     }
+
+    // Ajustar de forma segura el índice sin desbordar los límites del arreglo
+    setCurrentIndex((prev) => {
+      const nextMax = activeTasks.length - 2
+      return nextMax < 0 ? 0 : Math.min(prev, nextMax)
+    })
   }
 
   const handleToggleSubtask = (subtaskId: string) => {
@@ -156,6 +153,15 @@ export function FocusModeModal({
       st.id === subtaskId ? { ...st, completed: !st.completed } : st
     )
     onUpdateTask(currentCandidate.id, { checklist: updatedChecklist })
+
+    const toggledItem = updatedChecklist.find((st) => st.id === subtaskId)
+    if (toggledItem?.completed) {
+      soundEngine.playSuccessChime()
+      if (updatedChecklist.every((st) => st.completed)) {
+        triggerConfetti()
+        toast.success('🎉 ¡Todos los pasos de la actividad completados!', { icon: '🌟' })
+      }
+    }
   }
 
   const formatTimer = (totalSec: number) => {
@@ -387,57 +393,87 @@ export function FocusModeModal({
               )}
             </div>
 
-            {/* ── Temporizador Pomodoro de Enfoque (25 min) ─────────── */}
-            <div className="card bg-base-200/60 border border-base-300 p-4 rounded-2xl flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm">
-                  {formatTimer(secondsLeft)}
-                </div>
-                <div>
-                  <h5 className="font-bold text-xs text-base-content">
-                    Temporizador Pomodoro (25 min)
-                  </h5>
-                  <p className="text-[11px] text-base-content/50">
-                    {isTimerRunning
-                      ? '⏱️ Enfoque activo... concéntrate en esta tarea.'
-                      : 'Presiona Iniciar para arrancar tu bloque de concentración.'}
-                  </p>
-                </div>
-              </div>
+            {/* ── Temporizador Pomodoro de Enfoque con Colores Reactivos ─────────── */}
+            {(() => {
+              const isCandidateFocused = focusTimer.activeTask?.id === currentCandidate.id
+              const displaySeconds = isCandidateFocused ? focusTimer.secondsLeft : (focusTimer.totalSeconds || 25 * 60)
+              const isRunning = isCandidateFocused && focusTimer.isTimerRunning
+              const progressRatio = focusTimer.totalSeconds > 0 ? displaySeconds / focusTimer.totalSeconds : 0
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsTimerRunning(!isTimerRunning)}
-                  className={`btn btn-sm rounded-xl gap-1.5 text-xs font-bold ${
-                    isTimerRunning ? 'btn-warning' : 'btn-primary'
-                  }`}
-                >
-                  {isTimerRunning ? (
-                    <>
-                      <Pause className="w-3.5 h-3.5" />
-                      <span>Pausar</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5" />
-                      <span>Iniciar</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsTimerRunning(false)
-                    setSecondsLeft(POMODORO_DEFAULT_SECONDS)
-                  }}
-                  className="btn btn-ghost btn-sm btn-circle"
-                  title="Reiniciar temporizador"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+              let timerColorClass = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30'
+              if (progressRatio <= 0.2) {
+                timerColorClass = 'text-rose-500 bg-rose-500/15 border-rose-500/40 shadow-rose-500/25 shadow-md'
+              } else if (progressRatio <= 0.5) {
+                timerColorClass = 'text-amber-500 bg-amber-500/10 border-amber-500/30'
+              }
+
+              return (
+                <div className="card bg-base-200/60 border border-base-300 p-4 rounded-2xl flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-mono font-black text-base border transition-all ${timerColorClass} ${progressRatio <= 0.2 && isRunning ? 'animate-pulse' : ''}`}>
+                      {formatTimer(displaySeconds)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h5 className="font-bold text-xs text-base-content">
+                          Temporizador de Enfoque Pomodoro
+                        </h5>
+                        {isCandidateFocused && (
+                          <span className="badge badge-primary badge-xs font-bold text-[10px]">
+                            Tarea Activa
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-base-content/60">
+                        {isRunning
+                          ? '⏱️ Bloque de concentración activo. Permanece en segundo plano si cierras.'
+                          : 'Inicia el cronómetro para superponerlo en toda la pantalla.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isCandidateFocused) {
+                          if (focusTimer.isTimerRunning) {
+                            focusTimer.pauseTimer()
+                          } else {
+                            focusTimer.resumeTimer()
+                          }
+                        } else {
+                          focusTimer.startFocus(currentCandidate, 25)
+                        }
+                      }}
+                      className={`btn btn-sm rounded-xl gap-1.5 text-xs font-bold ${
+                        isRunning ? 'btn-warning' : 'btn-primary'
+                      }`}
+                    >
+                      {isRunning ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pausar</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>{isCandidateFocused ? 'Reanudar' : 'Iniciar Enfoque'}</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => focusTimer.resetTimer()}
+                      className="btn btn-ghost btn-sm btn-circle"
+                      title="Reiniciar temporizador"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* ── Acciones Finales ─────────────────────────────────── */}
             <div className="flex items-center justify-between gap-3 pt-2">

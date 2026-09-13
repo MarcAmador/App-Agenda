@@ -15,4 +15,11 @@ describe('HTTP API Endpoints Integration', () => {
     expect(res.status).toBe(404)
     expect(res.body).toHaveProperty('error', 'Ruta no encontrada')
   })
+
+  it('POST /api/v1/reminders/smtp-configure is blocked without authentication (401)', async () => {
+    const res = await request(app)
+      .post('/api/v1/reminders/smtp-configure')
+      .send({ user: 'attacker@evil.com', pass: 'hack' })
+    expect(res.status).toBe(401)
+  })
 })

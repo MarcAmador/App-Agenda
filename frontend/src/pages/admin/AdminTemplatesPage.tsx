@@ -29,7 +29,8 @@ export default function AdminTemplatesPage() {
     resumen_semanal: 'Disparador: Programado los lunes por la mañana con el panorama semanal',
     nuevo_dispositivo: 'Disparador: Al detectar un inicio de sesión desde un navegador o IP nuevo',
     seguridad: 'Disparador: Al cambiar contraseña, correo o revocar sesiones activas',
-    confirmacion_email: 'Disparador: Al registrar nueva cuenta que requiere activación',
+    verificacion_email: 'Disparador: Al registrar nueva cuenta que requiere verificación o activación',
+    confirmacion_email: 'Disparador: Al registrar nueva cuenta que requiere verificación o activación',
     alerta_sistema: 'Disparador: Despacho manual por Superadmin o avisos críticos',
   }
 

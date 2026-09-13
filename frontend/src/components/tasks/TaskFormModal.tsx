@@ -19,7 +19,14 @@ import {
   Globe,
   CheckCircle2,
   Circle,
+  Bookmark,
+  Sparkles,
 } from 'lucide-react'
+import { TaskTemplatesModal } from './TaskTemplatesModal'
+import { saveCustomTemplate, type AcademicTaskTemplate } from '@/utils/taskTemplates'
+import { breakdownTaskWithAI } from '@/utils/taskBreakdownAI'
+import { soundEngine } from '@/utils/audioEffects'
+import toast from 'react-hot-toast'
 import type {
   Task,
   CreateTaskInput,
@@ -94,8 +101,10 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
   const [links, setLinks] = useState<TaskLink[]>([])
   const [newLinkUrl, setNewLinkUrl] = useState('')
   const [newLinkTitle, setNewLinkTitle] = useState('')
+  const [templatesModalVisible, setTemplatesModalVisible] = useState(false)
+  const [isBreakingDown, setIsBreakingDown] = useState(false)
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, reset, getValues, setValue, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       title: '',
       description: '',
@@ -147,6 +156,91 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       setNewLinkTitle('')
     }
   }, [task, initialValues, reset, visible])
+
+  // ── Manejo de Plantillas ───────────────────────────────────────────────────
+  const handleSelectTemplate = (tpl: AcademicTaskTemplate) => {
+    reset({
+      title: tpl.title,
+      description: tpl.description,
+      status: 'pendiente',
+      priority: tpl.priority,
+      scope_period: tpl.scope_period,
+      due_date: new Date(),
+      due_time: null,
+      location: '',
+      category: tpl.category,
+      tags: tpl.tags || [],
+    })
+    setSubtasks(
+      tpl.subtasks.map((s) => ({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+        text: s.text,
+        completed: false,
+      }))
+    )
+    toast.success(`Plantilla "${tpl.title}" cargada`, { icon: '✨' })
+  }
+
+  const handleSaveAsTemplate = () => {
+    const currentValues = getValues()
+    if (!currentValues.title || !currentValues.title.trim()) {
+      toast.error('Ingresa al menos un título para crear una plantilla')
+      return
+    }
+
+    saveCustomTemplate({
+      title: currentValues.title.trim(),
+      description: currentValues.description || '',
+      category: currentValues.category || 'general',
+      priority: currentValues.priority,
+      scope_period: currentValues.scope_period,
+      tags: currentValues.tags || [],
+      subtasks: subtasks.map((s) => ({ id: s.id, text: s.text, completed: false })),
+    })
+
+    toast.success('¡Plantilla personalizada guardada con éxito!', { icon: '💾' })
+  }
+
+  // ── Desglose Inteligente con IA ─────────────────────────────────────────────
+  const handleAIBreakdown = async () => {
+    const currentValues = getValues()
+    if (!currentValues.title || !currentValues.title.trim()) {
+      toast.error('Escribe primero el título de la tarea para poder desglosarla con IA')
+      return
+    }
+
+    try {
+      setIsBreakingDown(true)
+      const result = await breakdownTaskWithAI({
+        title: currentValues.title,
+        description: currentValues.description,
+        category: currentValues.category,
+      })
+
+      const newItems: TaskSubtask[] = result.subtasks.map((text) => ({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        text,
+        completed: false,
+      }))
+
+      setSubtasks((prev) => [...prev, ...newItems])
+      if (!currentValues.category && result.suggestedCategory) {
+        setValue('category', result.suggestedCategory)
+      }
+      if ((!currentValues.tags || currentValues.tags.length === 0) && result.suggestedTags?.length) {
+        setValue('tags', result.suggestedTags)
+      }
+      soundEngine.playSuccessChime()
+      toast.success(
+        `✨ ¡${result.subtasks.length} pasos pedagógicos generados con IA! (~${result.estimatedTotalMinutes} min)`,
+        { duration: 4000 }
+      )
+    } catch {
+      toast.error('Error al generar desglose con IA')
+    } finally {
+      setIsBreakingDown(false)
+    }
+  }
 
   // ── Manejo de Subtareas ─────────────────────────────────────────────────────
   const handleAddSubtask = () => {
@@ -311,6 +405,26 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
     >
       <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-5 pt-2">
 
+        {/* Banner de Plantillas para Nuevas Tareas */}
+        {!isEditing && (
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-primary/10 via-base-200 to-secondary/10 border border-primary/20 gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-xs font-semibold text-base-content truncate">
+                ¿Deseas ahorrar tiempo con una rutina docente prediseñada?
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTemplatesModalVisible(true)}
+              className="btn btn-primary btn-xs rounded-lg gap-1.5 shadow-xs shrink-0 font-semibold"
+            >
+              <Bookmark className="w-3 h-3" />
+              <span>Usar Plantilla</span>
+            </button>
+          </div>
+        )}
+
         {/* 1. Título */}
         <div id="tour-modal-title" className="form-control gap-1.5">
           <label className="label-text font-medium text-sm">
@@ -331,12 +445,38 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
           {errors.title && <span className="text-error text-xs">{errors.title.message}</span>}
         </div>
 
-        {/* 2. Descripción */}
+        {/* 2. Descripción con Contador de Caracteres & Tiempo de Lectura */}
         <div id="tour-modal-description" className="form-control gap-1.5">
-          <label className="label-text font-medium text-sm">Descripción</label>
+          <div className="flex items-center justify-between">
+            <label className="label-text font-medium text-sm">Descripción</label>
+            <Controller
+              name="description"
+              control={control}
+              render={({ field }) => {
+                const text = field.value || ''
+                const charCount = text.length
+                const words = text.trim().split(/\s+/).filter(Boolean).length
+                const readMinutes = Math.max(1, Math.ceil(words / 160))
+
+                return (
+                  <div className="flex items-center gap-2 text-[11px] text-base-content/50">
+                    {words >= 15 && (
+                      <span className="badge badge-ghost badge-xs py-0.5 px-1.5 text-[10px]">
+                        ~{readMinutes} min de lectura
+                      </span>
+                    )}
+                    <span className={charCount > 1800 ? 'text-warning font-semibold' : ''}>
+                      {charCount} / 2,000
+                    </span>
+                  </div>
+                )
+              }}
+            />
+          </div>
           <Controller
             name="description"
             control={control}
+            rules={{ maxLength: { value: 2000, message: 'Máximo 2,000 caracteres' } }}
             render={({ field }) => (
               <InputTextarea
                 {...field}
@@ -430,7 +570,7 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
 
         {/* 5. Subtareas / Checklist (Joya 1) */}
         <div id="tour-modal-subtasks" className="card bg-base-200/50 border border-base-300/70 p-4 rounded-2xl flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                 <ListChecks className="w-3.5 h-3.5" />
@@ -439,11 +579,30 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
                 Subtareas / Pasos de la Actividad
               </span>
             </div>
-            {subtasks.length > 0 && (
-              <span className="badge badge-primary badge-outline badge-xs font-semibold py-1">
-                {completedSubtasksCount} de {subtasks.length} ({Math.round((completedSubtasksCount / subtasks.length) * 100)}%)
-              </span>
-            )}
+
+            <div className="flex items-center gap-2">
+              {/* Botón Desglosar con IA */}
+              <button
+                type="button"
+                disabled={isBreakingDown}
+                onClick={handleAIBreakdown}
+                className="btn btn-primary btn-xs rounded-lg gap-1.5 font-semibold shadow-2xs hover:shadow-xs"
+                title="Descomponer automáticamente esta tarea en pasos pedagógicos secuenciales con IA"
+              >
+                {isBreakingDown ? (
+                  <span className="loading loading-spinner loading-xs" />
+                ) : (
+                  <Sparkles className="w-3 h-3 text-primary-content" />
+                )}
+                <span>Desglosar con IA</span>
+              </button>
+
+              {subtasks.length > 0 && (
+                <span className="badge badge-primary badge-outline badge-xs font-semibold py-1">
+                  {completedSubtasksCount} de {subtasks.length} ({Math.round((completedSubtasksCount / subtasks.length) * 100)}%)
+                </span>
+              )}
+            </div>
           </div>
 
           {subtasks.length > 0 && (
@@ -672,23 +831,46 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
         </div>
 
         {/* 8. Acciones */}
-        <div id="tour-modal-actions" className="flex justify-end gap-3 pt-2 border-t border-base-200">
-          <button type="button" onClick={onHide} className="btn btn-ghost btn-sm">
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="btn btn-primary btn-sm min-w-24"
-          >
-            {isSubmitting
-              ? <span className="loading loading-spinner loading-xs" />
-              : isEditing ? 'Guardar cambios' : 'Crear tarea'
-            }
-          </button>
+        <div id="tour-modal-actions" className="flex items-center justify-between gap-3 pt-3 border-t border-base-200 flex-wrap">
+          <div>
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={handleSaveAsTemplate}
+                className="btn btn-ghost btn-xs text-base-content/60 hover:text-primary gap-1.5"
+                title="Guardar el título, categoría y subtareas actuales como una plantilla reutilizable"
+              >
+                <Bookmark className="w-3.5 h-3.5" />
+                <span>Guardar como mi plantilla</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onHide} className="btn btn-ghost btn-sm">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn btn-primary btn-sm min-w-24"
+            >
+              {isSubmitting
+                ? <span className="loading loading-spinner loading-xs" />
+                : isEditing ? 'Guardar cambios' : 'Crear tarea'
+              }
+            </button>
+          </div>
         </div>
 
       </form>
+
+      {/* ── Modal Catálogo de Plantillas Docentes ── */}
+      <TaskTemplatesModal
+        visible={templatesModalVisible}
+        onHide={() => setTemplatesModalVisible(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
     </Dialog>
   )
 }

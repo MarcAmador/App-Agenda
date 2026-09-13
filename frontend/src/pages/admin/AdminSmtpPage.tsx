@@ -150,6 +150,29 @@ export default function AdminSmtpPage() {
               Parámetros de Conexión del Servidor
             </h2>
 
+            {/* Indicador de Gmail REST API nativo */}
+            {settings.is_gmail_api_configured ? (
+              <div className="alert alert-success/15 border border-success/30 rounded-xl p-3 flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-success shrink-0 mt-0.5" />
+                <div className="text-xs space-y-0.5">
+                  <div className="font-bold text-success flex items-center gap-1.5">
+                    <span>Despacho Nativo Gmail REST API Activo</span>
+                    <span className="badge badge-success badge-xs font-mono">PUERTO 443 HTTPS</span>
+                  </div>
+                  <p className="text-base-content/80">
+                    El backend tiene configurada la <strong>Gmail API oficial</strong> mediante OAuth2 Refresh Token de Google Cloud. Los correos se despachan directamente por HTTPS con alta entregabilidad y logotipo verificado.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="alert alert-info/10 border border-info/20 rounded-xl p-3 flex items-start gap-3">
+                <Info className="w-4 h-4 text-info shrink-0 mt-0.5" />
+                <div className="text-xs text-base-content/70">
+                  <span>Modo SMTP Estándar / Brevo API. Si deseas despacho nativo de Gmail sin contraseñas de aplicación, define <code>GMAIL_REFRESH_TOKEN</code> en el servidor.</span>
+                </div>
+              </div>
+            )}
+
             {/* Selector de Proveedor Rápido */}
             <div className="bg-base-200/60 p-3 rounded-xl border border-base-300 space-y-2">
               <span className="text-xs font-bold text-base-content/70 block">

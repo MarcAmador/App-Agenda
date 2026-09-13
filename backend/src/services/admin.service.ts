@@ -4,7 +4,7 @@ import { SUPER_ADMIN_EMAILS } from '../middlewares/admin.middleware'
 import { smtpStore } from '../config/smtpStore'
 import { notificationDispatcher } from './dispatcher/notification.dispatcher'
 import { getEmailLogoUrl } from '../utils/emailAssets'
-import { sendEmailMessage, verifyEmailTransport } from './email/emailTransport'
+import { sendEmailMessage, verifyEmailTransport, isGmailApiProvider, isBrevoProvider, isResendProvider } from './email/emailTransport'
 
 // ─── Tipos e Interfaces ────────────────────────────────────────────────────────
 
@@ -65,6 +65,7 @@ export interface AppSettingsData {
   quiet_hours_end: string
   timezone: string
   default_language: string
+  is_gmail_api_configured?: boolean
 }
 
 // ─── Plantillas por defecto (Fallback seguro) ──────────────────────────────────
@@ -433,17 +434,32 @@ export class AdminService {
       console.warn('[AdminService.getUsers] user_roles fallback:', e)
     }
 
-    // Conteo de tareas por usuario
+    // Conteo de tareas por usuario (Optimizado con RPC o consulta acotada a la página)
     let tasksMap: Record<string, number> = {}
     try {
-      const { data: tasks } = await supabaseAdmin.from('tasks').select('user_id').is('deleted_at', null)
-      if (tasks) {
-        tasks.forEach((t) => {
-          tasksMap[t.user_id] = (tasksMap[t.user_id] || 0) + 1
+      const { data: rpcCounts, error: rpcError } = await supabaseAdmin.rpc('get_user_tasks_counts')
+      if (!rpcError && rpcCounts && Array.isArray(rpcCounts)) {
+        rpcCounts.forEach((row: any) => {
+          tasksMap[row.user_id] = Number(row.tasks_count) || 0
         })
+      } else {
+        const userIds = usersData.users.map((u) => u.id)
+        if (userIds.length > 0) {
+          const { data: tasks } = await supabaseAdmin
+            .from('tasks')
+            .select('user_id')
+            .in('user_id', userIds)
+            .is('deleted_at', null)
+
+          if (tasks) {
+            tasks.forEach((t) => {
+              tasksMap[t.user_id] = (tasksMap[t.user_id] || 0) + 1
+            })
+          }
+        }
       }
-    } catch {
-      // Ignorar fallback
+    } catch (countErr) {
+      console.warn('[AdminService.getUsers] tasks count fallback:', countErr)
     }
 
     let items: AdminUserItem[] = usersData.users.map((u) => {
@@ -778,7 +794,9 @@ export class AdminService {
           <tr>
             <td style="background-color: #f1f5f9; padding: 20px 28px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="margin: 0;">${footerText}</p>
-              <p style="margin: 6px 0 0; color: #94a3b8;">Despacho oficial de AgendaPro.</p>
+              <p style="margin: 6px 0 0; color: #94a3b8; font-size: 11px;">
+                Despacho oficial de AgendaPro. ¿Deseas modificar la frecuencia de tus correos o silenciar avisos? <a href="${smtpStore.get().appUrl}/config#notificaciones" style="color: #4f46e5; text-decoration: underline; font-weight: 600;">Ajustar preferencias</a>.
+              </p>
             </td>
           </tr>
         </table>
@@ -795,9 +813,10 @@ export class AdminService {
     }
     const cfg = smtpStore.get()
 
-    if (!cfg.user || !cfg.pass) {
+    const hasApiProvider = isGmailApiProvider() || isBrevoProvider(cfg) || isResendProvider(cfg)
+    if (!hasApiProvider && (!cfg.user || !cfg.pass)) {
       const err = new Error(
-        'El servidor SMTP no tiene credenciales configuradas (usuario o contraseña vacíos). ' +
+        'El servidor SMTP no tiene credenciales configuradas (ni proveedor API como Gmail/Brevo ni usuario/contraseña SMTP). ' +
         'Por favor ingresa al panel Super Admin > Configuración SMTP (/admin/smtp) para guardar tu correo emisor y contraseña de aplicación de 16 caracteres, ' +
         'o define SMTP_USER y SMTP_PASS en las variables de entorno de tu servidor (Render).'
       )
@@ -878,6 +897,7 @@ export class AdminService {
     return {
       ...memorySettings,
       smtp_pass: memorySettings.smtp_pass ? '••••••••••••••••' : '',
+      is_gmail_api_configured: isGmailApiProvider(),
     }
   }
 
@@ -1132,14 +1152,109 @@ export class AdminService {
       throw new Error('Registro de correo no encontrado')
     }
 
-    // Reintentar despacho real
+    // Reintentar despacho real reconstruyendo plantilla si existe
     try {
+      let emailHtml = `<p>Este es un reintento de entrega oficial para la notificación: <strong>${log.subject}</strong>.</p>`
+      let emailText = `Reintento de despacho: ${log.subject}`
+
+      if (log.template_slug) {
+        try {
+          const { data: template } = await supabaseAdmin
+            .from('email_templates')
+            .select('*')
+            .eq('slug', log.template_slug)
+            .maybeSingle()
+
+          if (template) {
+            const vars = {
+              name: log.recipient_name || log.recipient_email?.split('@')[0] || 'Docente',
+              app_name: 'AgendaPro',
+              action_url: smtpStore.get().appUrl,
+              ...(log.metadata?.variables || {}),
+            }
+
+            let subject = template.subject || log.subject
+            let headerTitle = template.header_title || log.subject
+            let bodyHtml = template.body_html || ''
+            let buttonText = template.button_text || 'Ir a la plataforma'
+            let buttonUrl = template.button_url || vars.action_url
+            let footerText = template.footer_text || 'AgendaPro'
+
+            Object.entries(vars).forEach(([k, v]) => {
+              const reg = new RegExp(`{{${k}}}`, 'g')
+              const val = String(v ?? '')
+              subject = subject.replace(reg, val)
+              headerTitle = headerTitle.replace(reg, val)
+              bodyHtml = bodyHtml.replace(reg, val)
+              buttonText = buttonText.replace(reg, val)
+              buttonUrl = buttonUrl.replace(reg, val)
+              footerText = footerText.replace(reg, val)
+            })
+
+            if (vars.task_list_html && !bodyHtml.includes(vars.task_list_html)) {
+              bodyHtml += vars.task_list_html
+            }
+
+            const logoUrl = getEmailLogoUrl(smtpStore.get().appUrl)
+            emailHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding: 32px 28px; text-align: left;">
+              <img src="${logoUrl}" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
+              <span style="display: inline-block; background-color: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 9999px; margin-bottom: 12px;">
+                AgendaPro
+              </span>
+              <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; line-height: 1.3;">
+                ${headerTitle}
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 28px; font-size: 15px; line-height: 1.6; color: #334155;">
+              ${bodyHtml}
+              <div style="margin: 28px 0; text-align: center;">
+                <a href="${buttonUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 28px; border-radius: 10px; box-shadow: 0 2px 8px rgba(37,99,235,0.25);">
+                  ${buttonText} →
+                </a>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f1f5f9; padding: 20px 28px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0;">${footerText}</p>
+              <p style="margin: 6px 0 0; color: #94a3b8;">Despacho oficial de AgendaPro.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+            emailText = `${headerTitle}\n\n${buttonUrl}`
+          }
+        } catch (tErr) {
+          console.warn('[retryEmail] Error reconstruyendo plantilla:', tErr)
+        }
+      }
+
       await sendEmailMessage({
         to: log.recipient_email,
         toName: log.recipient_name,
         subject: log.subject,
-        html: `<p>Este es un reintento de entrega oficial para la notificación: <strong>${log.subject}</strong>.</p>`,
-        text: `Reintento de despacho: ${log.subject}`,
+        html: emailHtml,
+        text: emailText,
       })
 
       await supabaseAdmin

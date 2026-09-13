@@ -3,32 +3,23 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import toast from 'react-hot-toast'
 
-const SUPER_ADMIN_EMAILS = [
-  'ronaldo22amador@gmail.com',
-  'marlon21ronaldo@gmail.com',
-]
-
 interface AdminRouteProps {
   children: ReactNode
 }
 
 export function AdminRoute({ children }: AdminRouteProps) {
-  const { user, isLoading, isAuthenticated } = useAuth()
+  const { user, isLoading, isAuthenticated, isAdmin, isSuperAdmin, isLoadingRole } = useAuth()
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || isLoadingRole) return
 
     if (!isAuthenticated || !user) {
       setIsAuthorized(false)
       return
     }
 
-    const email = user.email?.toLowerCase() || ''
-    const isOwner = SUPER_ADMIN_EMAILS.includes(email)
-    const userRole = user.app_metadata?.role || user.user_metadata?.role
-
-    if (isOwner || userRole === 'super_admin' || userRole === 'admin') {
+    if (isAdmin || isSuperAdmin) {
       setIsAuthorized(true)
     } else {
       setIsAuthorized(false)
@@ -36,9 +27,9 @@ export function AdminRoute({ children }: AdminRouteProps) {
         id: 'admin-denied',
       })
     }
-  }, [user, isLoading, isAuthenticated])
+  }, [user, isLoading, isAuthenticated, isAdmin, isSuperAdmin, isLoadingRole])
 
-  if (isLoading || isAuthorized === null) {
+  if (isLoading || isLoadingRole || isAuthorized === null) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-base-200">
         <span className="loading loading-infinity loading-lg text-primary"></span>

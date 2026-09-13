@@ -299,7 +299,7 @@ ${appUrl}/tareas
               </table>
 
               <p style="margin: 0; font-size: 12px; line-height: 18px; color: #94a3b8; text-align: center;">
-                Puedes modificar tus preferencias de notificación en cualquier momento desde el <a href="${appUrl}/config" style="color: #4f46e5; text-decoration: underline;">Panel de Configuración</a>.
+                ¿Deseas cambiar qué correos recibes o configurar su frecuencia? <a href="${appUrl}/config#notificaciones" style="color: #4f46e5; font-weight: 600; text-decoration: underline;">Gestionar Preferencias de Notificación</a>.
               </p>
             </td>
           </tr>

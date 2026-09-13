@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, LayoutList, Calendar, Grid2x2, X } from 'lucide-react'
+import { Plus, LayoutList, Calendar, Grid2x2, X, FileText } from 'lucide-react'
 import type { Task, CreateTaskInput, TaskPriority } from '@/types/database.types'
 import { TaskFilters } from '@/services/tasks.service'
 
@@ -14,6 +14,9 @@ import {
 } from '@/hooks/useTasks'
 import { TaskDataTable } from '@/components/tasks/TaskDataTable'
 import { TaskFormModal } from '@/components/tasks/TaskFormModal'
+import { TaskDetailModal } from '@/components/tasks/TaskDetailModal'
+import { ExecutiveReportModal } from '@/components/tasks/ExecutiveReportModal'
+import { useFocusTimer } from '@/context/FocusTimerContext'
 import { AdvancedFilterBar } from '@/components/tasks/AdvancedFilterBar'
 import { EisenhowerMatrix } from '@/components/matrix/EisenhowerMatrix'
 import { TaskCalendar } from '@/components/calendar/TaskCalendar'
@@ -109,9 +112,12 @@ export function TasksView({
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
   const [advancedFilters, setAdvancedFilters] = useState<TaskFilters>({})
   const [modalVisible, setModalVisible] = useState(false)
+  const [detailTask, setDetailTask] = useState<Task | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [initialModalValues, setInitialModalValues] = useState<Partial<CreateTaskInput> | null>(null)
+  const [reportModalVisible, setReportModalVisible] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode)
+  const { startFocus } = useFocusTimer()
   const navigate = useNavigate()
 
   const handleViewChange = (mode: ViewMode) => {
@@ -129,6 +135,7 @@ export function TasksView({
   }
 
   const { data, isLoading } = useTasks(combinedFilters)
+  const { data: allTasksData } = useTasks()
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
   const updateStatus = useUpdateTaskStatus()
@@ -138,16 +145,17 @@ export function TasksView({
   const tasks = data?.data ?? []
   const totalRecords = data?.count ?? 0
 
-  // Conteos inteligentes para las stat cards
+  // Conteos inteligentes para las stat cards (desacoplados del filtro de estado activo)
   const todayStr = new Date().toISOString().split('T')[0]
   const isOverdue = (t: Task) =>
     Boolean(t.due_date && t.due_date < todayStr && !['completada', 'anulada', 'archivada'].includes(t.status))
 
+  const baseTasksForCounts = allTasksData?.data ?? tasks
   const counts = {
-    pendiente:  tasks.filter((t) => t.status === 'pendiente').length,
-    en_curso:   tasks.filter((t) => t.status === 'en_curso').length,
-    completada: tasks.filter((t) => t.status === 'completada').length,
-    perdida:    tasks.filter((t) => t.status === 'perdida' || isOverdue(t)).length,
+    pendiente:  baseTasksForCounts.filter((t) => t.status === 'pendiente').length,
+    en_curso:   baseTasksForCounts.filter((t) => t.status === 'en_curso').length,
+    completada: baseTasksForCounts.filter((t) => t.status === 'completada').length,
+    perdida:    baseTasksForCounts.filter((t) => t.status === 'perdida' || isOverdue(t)).length,
   }
 
   const hasActiveFilters = quickFilter !== 'todos' || statusFilter !== undefined || Object.keys(advancedFilters).length > 0
@@ -233,6 +241,17 @@ export function TasksView({
               </button>
             ))}
           </div>
+
+          {/* Botón Exportar Informe Ejecutivo */}
+          <button
+            type="button"
+            onClick={() => setReportModalVisible(true)}
+            className="btn btn-outline btn-sm rounded-xl gap-1.5 hover:bg-base-200 transition-colors"
+            title="Generar informe ejecutivo de actividades docentes en PDF o Excel"
+          >
+            <FileText className="w-4 h-4 text-primary" />
+            <span className="hidden sm:inline">Exportar Reporte</span>
+          </button>
 
           {/* Botón Nueva Tarea */}
           <button
@@ -341,6 +360,7 @@ export function TasksView({
             loading={isLoading}
             totalRecords={totalRecords}
             onEdit={handleOpenEdit}
+            onViewDetails={(task) => setDetailTask(task)}
             onDelete={(id) => deleteTask.mutate(id)}
             onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
             onArchive={handleArchive}
@@ -385,6 +405,22 @@ export function TasksView({
         }}
         onSubmit={handleSubmit}
         isSubmitting={createTask.isPending || updateTask.isPending}
+      />
+
+      {/* ── Modal de Detalles Completos de Tarea ── */}
+      <TaskDetailModal
+        visible={!!detailTask}
+        task={detailTask ? (tasks.find((t) => t.id === detailTask.id) || allTasksData?.data?.find((t) => t.id === detailTask.id) || detailTask) : null}
+        onHide={() => setDetailTask(null)}
+        onEdit={handleOpenEdit}
+        onStartFocus={(t) => startFocus(t, 25)}
+      />
+
+      {/* ── Modal de Informe Ejecutivo (PDF / Excel) ── */}
+      <ExecutiveReportModal
+        visible={reportModalVisible}
+        onHide={() => setReportModalVisible(false)}
+        tasks={allTasksData?.data ?? tasks}
       />
     </div>
   )

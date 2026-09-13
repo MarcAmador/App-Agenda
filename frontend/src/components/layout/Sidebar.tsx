@@ -1,16 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, LayoutList, CalendarDays,
-  Grid2x2, Settings, X,
+  Grid2x2, Settings, X, Download,
 } from 'lucide-react'
 import { useTasks, useTasksRealtime } from '@/hooks/useTasks'
 import { useAuth } from '@/context/AuthContext'
+import { usePWAInstall } from '@/hooks/usePWAInstall'
 import { Shield } from 'lucide-react'
-
-const SUPER_ADMIN_EMAILS = [
-  'ronaldo22amador@gmail.com',
-  'marlon21ronaldo@gmail.com',
-]
 
 interface SidebarProps {
   open: boolean
@@ -18,11 +14,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { user } = useAuth()
-  const isSuperAdmin =
-    SUPER_ADMIN_EMAILS.includes(user?.email?.toLowerCase() || '') ||
-    user?.app_metadata?.role === 'super_admin' ||
-    user?.user_metadata?.role === 'super_admin'
+  const { isAdmin, isSuperAdmin } = useAuth()
+  const { canInstall, promptInstall } = usePWAInstall()
 
   // Sincronización reactiva en tiempo real
   useTasksRealtime()
@@ -40,7 +33,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     { to: '/calendario', icon: CalendarDays,    label: 'Calendario',    end: false },
     { to: '/matriz',     icon: Grid2x2,         label: 'Matriz',        end: false },
     { to: '/config',     icon: Settings,        label: 'Configuración', end: false },
-    ...(isSuperAdmin ? [{ to: '/admin', icon: Shield, label: 'Panel Admin', end: false, badge: 'SUPER', badgeClass: 'badge-warning text-warning-content' }] : []),
+    ...(isAdmin || isSuperAdmin
+      ? [{
+          to: '/admin',
+          icon: Shield,
+          label: 'Panel Admin',
+          end: false,
+          badge: isSuperAdmin ? 'SUPER' : 'ADMIN',
+          badgeClass: isSuperAdmin ? 'badge-warning text-warning-content' : 'badge-primary text-primary-content',
+        }]
+      : []),
   ]
 
   return (
@@ -104,6 +106,20 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </ul>
         </nav>
 
+        {/* Botón de Instalación PWA (Visible cuando es instalable) */}
+        {canInstall && (
+          <div className="p-3 border-t border-base-200">
+            <button
+              type="button"
+              onClick={promptInstall}
+              className="btn btn-outline btn-primary btn-sm w-full gap-2 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs"
+              title="Instalar AgendaPro en tu dispositivo"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Instalar Aplicación</span>
+            </button>
+          </div>
+        )}
 
       </aside>
     </>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import type { Task, TaskPriority, TaskStatus } from '@/types/database.types'
 import { SCOPE_META, PRIORITY_META } from '@/types/database.types'
+import { shareTaskViaWhatsApp } from '@/utils/whatsappShare'
 
 
 interface MatrixTaskCardProps {
@@ -60,15 +61,14 @@ export function MatrixTaskCard({
   }
 
   const handleShareWhatsApp = () => {
-    let msg = `⏰ *Recordatorio AgendaPro*\n\n📌 *Tarea:* ${task.title}\n`
-    if (task.description) msg += `📝 *Detalles:* ${task.description}\n`
-    if (task.due_date) {
-      msg += `📅 *Vencimiento:* ${task.due_date}${task.due_time ? ` a las ${task.due_time.substring(0, 5)}` : ''}\n`
-    }
-    msg += `⚡ *Prioridad:* ${PRIORITY_META[task.priority]?.label ?? task.priority}\n\n`
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5180'
-    msg += `🔗 *Ver en portal:* ${baseUrl}/tareas`
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
+    shareTaskViaWhatsApp({
+      title: task.title,
+      description: task.description,
+      dueDate: task.due_date,
+      dueTime: task.due_time,
+      priorityLabel: PRIORITY_META[task.priority]?.label ?? task.priority,
+      category: task.category,
+    })
   }
 
   return (

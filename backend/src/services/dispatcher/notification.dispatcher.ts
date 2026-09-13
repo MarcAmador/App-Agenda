@@ -232,6 +232,11 @@ export class NotificationDispatcher {
         continue
       }
 
+      // Si el usuario desactivó los recordatorios o activó No Molestar (DND), ignorar
+      if (prefs.task_reminders_enabled === false || prefs.dnd_enabled === true) {
+        continue
+      }
+
       // Obtener datos de usuario
       let userData = usersCache.get(task.user_id)
       if (!userData) {
@@ -311,14 +316,17 @@ export class NotificationDispatcher {
           const delivery = await adapter.send(payload)
 
           // Registrar en reminder_logs
+          const isWaManualDirect = ch === 'whatsapp' && delivery.directUrl && !delivery.messageId?.startsWith('SM') && !delivery.messageId?.startsWith('wamid')
+          const logStatus = isWaManualDirect ? 'pending' : (delivery.success ? 'sent' : 'failed')
+
           await supabaseAdmin.from('reminder_logs').insert({
             task_id: task.id,
             user_id: task.user_id,
             channel: ch,
-            status: delivery.success ? 'sent' : 'failed',
+            status: logStatus,
             scheduled_for: scheduledIso,
-            sent_at: delivery.success ? delivery.sentAt.toISOString() : null,
-            error_message: delivery.error ?? null,
+            sent_at: delivery.success && !isWaManualDirect ? delivery.sentAt.toISOString() : null,
+            error_message: isWaManualDirect ? 'Enlace wa.me generado pendiente de envío por el usuario' : (delivery.error ?? null),
           })
 
           // Registrar en system_email_logs del centro de despacho
@@ -364,15 +372,48 @@ export class NotificationDispatcher {
     let failed = 0
 
     try {
-      const { data: usersList, error: uErr } = await supabaseAdmin.auth.admin.listUsers()
-      if (uErr || !usersList?.users) {
-        console.error('[NotificationDispatcher] Error obteniendo usuarios para Daily Digest:', uErr)
+      let allUsers: any[] = []
+      let page = 1
+      const perPage = 200
+
+      while (true) {
+        const { data: usersList, error: uErr } = await supabaseAdmin.auth.admin.listUsers({
+          page,
+          perPage,
+        })
+        if (uErr) {
+          console.error('[NotificationDispatcher] Error obteniendo usuarios para Daily Digest:', uErr)
+          break
+        }
+        if (!usersList?.users || usersList.users.length === 0) break
+        allUsers.push(...usersList.users)
+        if (usersList.users.length < perPage) break
+        page++
+      }
+
+      if (allUsers.length === 0) {
         return { processed, sent, failed }
       }
 
-      for (const user of usersList.users) {
+      // El inicio del día local en Guatemala (UTC-6) corresponde a las 06:00:00Z en UTC
+      const startOfDayUtc = new Date(`${localToday}T06:00:00.000Z`).toISOString()
+
+      for (const user of allUsers) {
         if (!user.email) continue
         if (options?.targetUserId && user.id !== options.targetUserId) continue
+
+        // 0. Comprobar preferencias de notificación (si no es forzado)
+        if (!options?.force) {
+          const { data: userPrefs } = await supabaseAdmin
+            .from('user_preferences')
+            .select('daily_digest_enabled, dnd_enabled')
+            .eq('user_id', user.id)
+            .maybeSingle()
+
+          if (userPrefs && (userPrefs.daily_digest_enabled === false || userPrefs.dnd_enabled === true)) {
+            continue
+          }
+        }
 
         // 1. Verificar si ya se le envió el digest hoy (evitar duplicados, a menos que force sea true)
         if (!options?.force) {
@@ -381,7 +422,7 @@ export class NotificationDispatcher {
             .select('id')
             .eq('recipient_email', user.email)
             .eq('template_slug', 'resumen_diario')
-            .gte('created_at', `${localToday}T00:00:00Z`)
+            .gte('created_at', startOfDayUtc)
             .maybeSingle()
 
           if (alreadySent) {

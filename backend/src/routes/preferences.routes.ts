@@ -33,6 +33,11 @@ preferencesRouter.get('/', async (req: Request, res: Response) => {
         telegram_chat_id: null,
         reminder_lead_time_minutes: 60,
         theme: 'system',
+        daily_digest_enabled: true,
+        weekly_digest_enabled: true,
+        login_alerts_enabled: true,
+        task_reminders_enabled: true,
+        dnd_enabled: false,
       }
 
       const { data: created, error: insertError } = await supabaseAdmin

@@ -72,6 +72,7 @@ export interface AppSettings {
   quiet_hours_end: string
   timezone: string
   default_language: string
+  is_gmail_api_configured?: boolean
 }
 
 export interface AdminOverview {

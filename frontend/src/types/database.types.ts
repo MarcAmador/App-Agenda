@@ -85,6 +85,11 @@ export interface UserPreferences {
   telegram_chat_id: string | null
   reminder_lead_time_minutes: number
   theme: string
+  daily_digest_enabled?: boolean
+  weekly_digest_enabled?: boolean
+  login_alerts_enabled?: boolean
+  task_reminders_enabled?: boolean
+  dnd_enabled?: boolean
   created_at: string
   updated_at: string
 }

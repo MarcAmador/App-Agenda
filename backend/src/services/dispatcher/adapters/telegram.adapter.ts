@@ -17,13 +17,29 @@ export class TelegramAdapter implements ChannelAdapter {
 
     try {
       const message = this.formatMarkdown(payload)
+      const botToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
+      let messageId = `tg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 
-      // Registro de despacho de Telegram
-      console.log(`[TelegramAdapter] Enviando a Chat ID ${payload.telegramChatId}:\n${message}`)
+      if (botToken) {
+        console.log(`[TelegramAdapter] 🚀 Enviando a Telegram API para Chat ID ${payload.telegramChatId}...`)
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: payload.telegramChatId,
+            text: message,
+            parse_mode: 'Markdown',
+          }),
+        })
 
-      // En producción con TELEGRAM_BOT_TOKEN,
-      // se despacha fetch(`https://api.telegram.org/bot${token}/sendMessage`, { chat_id, text, parse_mode: 'Markdown' })
-      const messageId = `tg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+        const resData = (await response.json()) as any
+        if (!response.ok || !resData.ok) {
+          throw new Error(`[Telegram API Error] ${resData.description || 'Fallo al enviar mensaje por Telegram'}`)
+        }
+        messageId = String(resData.result?.message_id || messageId)
+      } else {
+        console.log(`[TelegramAdapter] ℹ️ Simulación (sin TELEGRAM_BOT_TOKEN en .env) para Chat ID ${payload.telegramChatId}:\n${message}`)
+      }
 
       return {
         channel: this.channel,

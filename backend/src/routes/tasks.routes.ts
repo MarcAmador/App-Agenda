@@ -35,7 +35,12 @@ tasksRouter.get('/', async (req: Request, res: Response) => {
     if (filters.priority)     query = query.eq('priority', filters.priority)
     if (filters.scope_period) query = query.eq('scope_period', filters.scope_period)
     if (filters.category)     query = query.ilike('category', `%${filters.category}%`)
-    if (filters.search)       query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
+    if (filters.search) {
+      const sanitized = filters.search.replace(/[,()"]/g, ' ').trim()
+      if (sanitized) {
+        query = query.or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
+      }
+    }
     if (filters.due_from)     query = query.gte('due_date', filters.due_from)
     if (filters.due_to)       query = query.lte('due_date', filters.due_to)
 

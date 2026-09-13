@@ -67,7 +67,7 @@ class ReminderScheduler {
         10
       )
 
-      if (localHour >= 7 && this.lastDigestDate !== localDateStr) {
+      if (localHour >= 7 && localHour < 11 && this.lastDigestDate !== localDateStr) {
         this.lastDigestDate = localDateStr
         console.log(`🌅 [ReminderScheduler] Iniciando evaluación del Daily Academic Digest para la fecha ${localDateStr}...`)
         const digestStats = await notificationDispatcher.dispatchDailyDigests()

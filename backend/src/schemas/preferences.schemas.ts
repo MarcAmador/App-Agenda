@@ -30,6 +30,11 @@ export const UpdateUserPreferencesSchema = z.object({
     .max(200000, { message: 'El tiempo de anticipación o combinación es inválido' })
     .optional(),
   theme: ThemeEnum.optional(),
+  daily_digest_enabled: z.boolean().optional(),
+  weekly_digest_enabled: z.boolean().optional(),
+  login_alerts_enabled: z.boolean().optional(),
+  task_reminders_enabled: z.boolean().optional(),
+  dnd_enabled: z.boolean().optional(),
 })
 
 export type UpdateUserPreferencesInput = z.infer<typeof UpdateUserPreferencesSchema>

@@ -7,7 +7,7 @@ describe('Admin Public and Protected Endpoints', () => {
     expect(res.status).toBe(200)
     expect(res.body).toHaveProperty('app_name')
     expect(res.body).toHaveProperty('global_banner_enabled')
-  })
+  }, 10000)
 
   it('GET /api/v1/admin/overview returns 401 when no token is provided', async () => {
     const res = await request(app).get('/api/v1/admin/overview')

@@ -136,6 +136,20 @@ export const TOUR_STEPS: TourStepDefinition[] = [
   },
 
   // ─── CONTINUACIÓN DASHBOARD ──────────────────────────────────────────────
+  // Modo Enfoque Inteligente
+  {
+    route: '/',
+    element: '#tour-focus-mode',
+    title: '🎯 Modo Enfoque ("¿Qué hago ahora?")',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        ¿No sabes por dónde empezar tu jornada docente? Nuestro algoritmo inteligente analiza tus vencimientos y tareas de alta prioridad (Q1) para sugerirte en qué concentrarte ya.<br><br>
+        Al activar el temporizador, se superpone un <strong>cronómetro flotante persistente</strong> en toda la aplicación que cambia dinámicamente de color según el tiempo restante.
+      </div>
+    `,
+    side: 'bottom',
+    align: 'center',
+  },
   // 10. Resumen Cuadrantes
   {
     route: '/',
@@ -242,6 +256,20 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     side: 'top',
     align: 'center',
   },
+  // Ver Detalles de Tarea
+  {
+    route: '/tareas',
+    element: '#tour-task-detail-btn',
+    title: '👁️ Ficha Detallada & Checklist Creativo',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Cada actividad cuenta con un botón de <strong>Ver Detalles</strong> (icono de ojo) y título interactivo.<br><br>
+        Podrás consultar enlaces a Google Drive o Meet, etiquetas y un <strong>checklist con barra de progreso segmentada y creativa</strong> para marcar tus pasos en tiempo real.
+      </div>
+    `,
+    side: 'top',
+    align: 'center',
+  },
 
   // ─── MATRIZ DE EISENHOWER (Ruta: /matriz) ──────────────────────────────────
   // 18. Distribución
@@ -341,6 +369,32 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     `,
     side: 'top',
     align: 'center',
+  },
+  // Toggles de Notificación y Frecuencia
+  {
+    route: '/config',
+    element: '#tour-notification-toggles',
+    title: '🎛️ Control de Frecuencia & Toggles de Notificación',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Toma el control absoluto de tus avisos: activa o desactiva con un solo clic el <strong>Resumen Matutino Diario (7:00 AM)</strong>, la Planificación Semanal, los recordatorios inmediatos o las alertas de seguridad ante nuevos dispositivos. También puedes activar el <strong>Modo No Molestar (DND)</strong> para pausar todo temporalmente.
+      </div>
+    `,
+    side: 'top',
+    align: 'center',
+  },
+  // Prueba de Resumen Diario
+  {
+    route: '/config',
+    element: '#tour-test-digest-btn',
+    title: '☀️ Disparar Resumen Diario de Prueba',
+    description: `
+      <div style="font-size: 13.5px; line-height: 1.65; opacity: 0.9;">
+        Usa este botón para enviarte de inmediato un correo real con el <strong>Daily Academic Digest</strong> y comprobar su diseño institucional y tareas del día.
+      </div>
+    `,
+    side: 'top',
+    align: 'end',
   },
   // 25. Selector de Temas Visuales
   {

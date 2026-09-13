@@ -269,7 +269,7 @@ authRouter.post('/record-login', authMiddleware, async (req: Request, res: Respo
         },
       })
 
-      // Enviar correo de alerta de seguridad: plantilla 'nuevo_dispositivo'
+      // Enviar correo de alerta de seguridad: plantilla 'nuevo_dispositivo' (si está habilitado)
       const appUrl = (process.env.FRONTEND_URL || 'http://localhost:5180').replace(/\/$/, '')
       const loginTimeFormatted = new Intl.DateTimeFormat('es-GT', {
         dateStyle: 'long',
@@ -277,17 +277,28 @@ authRouter.post('/record-login', authMiddleware, async (req: Request, res: Respo
         timeZone: 'America/Guatemala',
       }).format(new Date())
 
-      try {
-        await AdminService.sendSystemEmail('nuevo_dispositivo', user.email!, {
-          name: userName,
-          ip_address: ip,
-          login_time: loginTimeFormatted,
-          user_agent: deviceSignature,
-          action_url: `${appUrl}/config`,
-          app_name: 'AgendaPro',
-        })
-      } catch (mailErr) {
-        console.warn('[record-login] Advertencia al enviar correo de nuevo dispositivo:', mailErr)
+      // Consultar preferencias del usuario para login_alerts_enabled
+      const { data: userPrefs } = await supabaseAdmin
+        .from('user_preferences')
+        .select('login_alerts_enabled, dnd_enabled')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      const shouldSendAlert = !userPrefs || (userPrefs.login_alerts_enabled !== false && userPrefs.dnd_enabled !== true)
+
+      if (shouldSendAlert) {
+        try {
+          await AdminService.sendSystemEmail('nuevo_dispositivo', user.email!, {
+            name: userName,
+            ip_address: ip,
+            login_time: loginTimeFormatted,
+            user_agent: deviceSignature,
+            action_url: `${appUrl}/config#seguridad`,
+            app_name: 'AgendaPro',
+          })
+        } catch (mailErr) {
+          console.warn('[record-login] Advertencia al enviar correo de nuevo dispositivo:', mailErr)
+        }
       }
 
       res.json({

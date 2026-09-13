@@ -41,7 +41,15 @@ export function isGmailApiProvider(): boolean {
   )
 }
 
+let cachedAccessToken: { token: string; expiresAt: number } | null = null
+
 export async function getGmailAccessToken(): Promise<string> {
+  const now = Date.now()
+  // Reutilizar token si aún le quedan al menos 2 minutos de vida útil
+  if (cachedAccessToken && cachedAccessToken.expiresAt > now + 120000) {
+    return cachedAccessToken.token
+  }
+
   const clientId = (process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim()
   const clientSecret = (process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim()
   const refreshToken = (process.env.GMAIL_REFRESH_TOKEN || '').trim()
@@ -68,7 +76,13 @@ export async function getGmailAccessToken(): Promise<string> {
     throw new Error(`[Google OAuth Error] ${data.error_description || data.error || 'No se pudo obtener el token de acceso'}`)
   }
 
-  return data.access_token as string
+  const expiresInSec = Number(data.expires_in) || 3600
+  cachedAccessToken = {
+    token: data.access_token as string,
+    expiresAt: now + (expiresInSec * 1000),
+  }
+
+  return cachedAccessToken.token
 }
 
 export async function buildRfc822Base64Url(mailOptions: Record<string, any>): Promise<string> {

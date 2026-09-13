@@ -33,7 +33,7 @@ export class WhatsAppAdapter implements ChannelAdapter {
       }
 
       // 3. Envío directo habilitado (wa.me)
-      console.log(`[WhatsAppAdapter] 📱 URL directa generada para ${cleanPhone}:\n${directUrl}`)
+      console.log(`[WhatsAppAdapter] 📱 URL directa wa.me para ${cleanPhone}:\n${directUrl}`)
 
       return {
         channel: this.channel,

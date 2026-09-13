@@ -20,23 +20,18 @@ import {
 
 import { useAuth } from '@/context/AuthContext'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { useTasks, useCreateTask, useUpdateTaskStatus, useUpdateTask } from '@/hooks/useTasks'
+import { useTasks, useCreateTask, useUpdateTaskStatus } from '@/hooks/useTasks'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
 import { TaskFormModal } from '@/components/tasks/TaskFormModal'
-import { FocusModeModal } from '@/components/tasks/FocusModeModal'
+import { useFocusTimer } from '@/context/FocusTimerContext'
 import { adminService } from '@/services/admin.service'
 import type { CreateTaskInput } from '@/types/database.types'
 
-const SUPER_ADMIN_EMAILS = [
-  'ronaldo22amador@gmail.com',
-  'marlon21ronaldo@gmail.com',
-]
-
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
+  const { openFocusModal } = useFocusTimer()
   const [modalVisible, setModalVisible] = useState(false)
-  const [focusModalVisible, setFocusModalVisible] = useState(false)
   const [publicSettings, setPublicSettings] = useState<{
     global_banner_enabled?: boolean
     global_banner_text?: string
@@ -47,13 +42,10 @@ export default function DashboardPage() {
     adminService.getPublicSettings().then(setPublicSettings)
   }, [])
 
-  const isSuperAdmin =
-    SUPER_ADMIN_EMAILS.includes(user?.email?.toLowerCase() || '') ||
-    user?.app_metadata?.role === 'super_admin' ||
-    user?.user_metadata?.role === 'super_admin'
-
-  // Obtener nombre del usuario (prioriza override local o metadata)
-  const localName = typeof window !== 'undefined' ? localStorage.getItem('agendapro_custom_display_name') : null
+  // Obtener nombre del usuario (prioriza override local con namespace o metadata)
+  const localName = typeof window !== 'undefined' && user?.id
+    ? (localStorage.getItem(`agendapro_custom_display_name_${user.id}`) || localStorage.getItem('agendapro_custom_display_name'))
+    : null
   const fullName = localName || (user?.user_metadata?.full_name as string) || (user?.user_metadata?.name as string) || 'Coordinador'
   const firstName = fullName.split(' ')[0]
 
@@ -61,7 +53,6 @@ export default function DashboardPage() {
   const { data: tasksData, isLoading } = useTasks()
   const createTask = useCreateTask()
   const updateStatus = useUpdateTaskStatus()
-  const updateTask = useUpdateTask()
 
   const tasks = tasksData?.data ?? []
   const todayStr = new Date().toISOString().split('T')[0]
@@ -206,7 +197,8 @@ export default function DashboardPage() {
               {/* Botón Modo Enfoque / ¿Qué hago ahora? (Joya 3) */}
               <button
                 type="button"
-                onClick={() => setFocusModalVisible(true)}
+                id="tour-focus-mode"
+                onClick={openFocusModal}
                 className="btn bg-white/20 hover:bg-white/30 text-white border border-white/30 rounded-2xl gap-2 font-bold shadow-md hover:scale-105 transition-all text-xs backdrop-blur-md"
                 title="Selecciona automáticamente la tarea crítica más urgente que debes atender"
               >
@@ -598,15 +590,6 @@ export default function DashboardPage() {
           onHide={() => setModalVisible(false)}
           onSubmit={handleCreateSubmit}
           isSubmitting={createTask.isPending}
-        />
-
-        {/* ── Modal de Modo Enfoque Inteligente (Joya 3) ──────────── */}
-        <FocusModeModal
-          visible={focusModalVisible}
-          tasks={tasks}
-          onHide={() => setFocusModalVisible(false)}
-          onUpdateStatus={(id, status) => updateStatus.mutate({ id, status })}
-          onUpdateTask={(id, input) => updateTask.mutate({ id, input })}
         />
 
       </div>

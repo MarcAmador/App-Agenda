@@ -14,6 +14,10 @@ import {
   Smartphone,
   Sparkles,
   Sun,
+  Calendar,
+  ShieldCheck,
+  Moon,
+  BellRing,
 } from 'lucide-react'
 import {
   useUserPreferences,
@@ -22,6 +26,7 @@ import {
   useSendDailyDigest,
 } from '@/hooks/usePreferences'
 import { useAuth } from '@/context/AuthContext'
+import toast from 'react-hot-toast'
 import type { NotificationChannel } from '@/types/database.types'
 import { MultiSelect } from 'primereact/multiselect'
 import { LEAD_TIME_OPTIONS, encodeLeadTimes, decodeLeadTimes } from '@/utils/leadTimes'
@@ -46,6 +51,13 @@ export function NotificationSettings() {
   const [telegramChatId, setTelegramChatId] = useState('')
   const [leadTimes, setLeadTimes] = useState<number[]>([15])
 
+  // Toggles de control y frecuencia de notificaciones
+  const [dailyDigestEnabled, setDailyDigestEnabled] = useState(true)
+  const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(true)
+  const [loginAlertsEnabled, setLoginAlertsEnabled] = useState(true)
+  const [taskRemindersEnabled, setTaskRemindersEnabled] = useState(true)
+  const [dndEnabled, setDndEnabled] = useState(false)
+
   // Pruebas en vivo
   const [testChannel, setTestChannel] = useState<NotificationChannel>('email')
   const [destinationEmail, setDestinationEmail] = useState(user?.email || '')
@@ -65,6 +77,11 @@ export function NotificationSettings() {
       setPhoneNumber(prefs.phone_number ?? '')
       setTelegramChatId(prefs.telegram_chat_id ?? '')
       setLeadTimes(decodeLeadTimes(prefs.reminder_lead_time_minutes))
+      setDailyDigestEnabled(prefs.daily_digest_enabled !== false)
+      setWeeklyDigestEnabled(prefs.weekly_digest_enabled !== false)
+      setLoginAlertsEnabled(prefs.login_alerts_enabled !== false)
+      setTaskRemindersEnabled(prefs.task_reminders_enabled !== false)
+      setDndEnabled(Boolean(prefs.dnd_enabled))
     }
   }, [prefs])
 
@@ -84,6 +101,26 @@ export function NotificationSettings() {
       phone_number: phoneNumber.trim() ? phoneNumber.trim() : null,
       telegram_chat_id: telegramChatId.trim() ? telegramChatId.trim() : null,
       reminder_lead_time_minutes: encodeLeadTimes(leadTimes),
+      daily_digest_enabled: dailyDigestEnabled,
+      weekly_digest_enabled: weeklyDigestEnabled,
+      login_alerts_enabled: loginAlertsEnabled,
+      task_reminders_enabled: taskRemindersEnabled,
+      dnd_enabled: dndEnabled,
+    })
+  }
+
+  const handleTogglePreference = (
+    field: 'daily_digest_enabled' | 'weekly_digest_enabled' | 'login_alerts_enabled' | 'task_reminders_enabled' | 'dnd_enabled',
+    value: boolean
+  ) => {
+    if (field === 'daily_digest_enabled') setDailyDigestEnabled(value)
+    if (field === 'weekly_digest_enabled') setWeeklyDigestEnabled(value)
+    if (field === 'login_alerts_enabled') setLoginAlertsEnabled(value)
+    if (field === 'task_reminders_enabled') setTaskRemindersEnabled(value)
+    if (field === 'dnd_enabled') setDndEnabled(value)
+
+    updatePrefs.mutate({
+      [field]: value,
     })
   }
 
@@ -117,14 +154,22 @@ export function NotificationSettings() {
 
   const handleOpenDirectWhatsApp = () => {
     if (!phoneNumber) {
-      alert('Por favor ingresa primero tu número de teléfono con código de país (ej: +50212345678).')
+      toast.error('Por favor ingresa primero tu número de teléfono con código de país (ej: +50212345678).')
       return
     }
     const cleanPhone = phoneNumber.replace(/[^\d]/g, '')
-    const msg = encodeURIComponent(
-      `🔔 *AgendaPro · Notificación de Prueba*\n\n¡Hola! Tu WhatsApp ha sido configurado con éxito para recibir alertas y recordatorios de actividades académicas.\n\n_AgendaPro SaaS · Gestión Docente_`
-    )
-    window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank')
+    const msg = `🔔 *AgendaPro · Notificación de Prueba*\n\n¡Hola! Tu WhatsApp ha sido configurado con éxito para recibir alertas y recordatorios de actividades académicas.\n\n_AgendaPro SaaS · Gestión Docente_`
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(msg).catch(() => {})
+    }
+    const isMobile =
+      typeof navigator !== 'undefined' &&
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent)
+    const url = isMobile
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`
+      : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`
+    toast.success('💬 Abriendo WhatsApp y mensaje copiado al portapapeles', { icon: '📱' })
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   if (isLoading) {
@@ -392,44 +437,176 @@ export function NotificationSettings() {
         </div>
       </div>
 
-      {/* ── Joya 4: Daily Academic Digest Automático (7:00 AM) ─────── */}
-      <div className="pt-3 border-t border-base-200 flex flex-col gap-3 bg-gradient-to-r from-amber-500/10 via-primary/5 to-transparent p-4 rounded-xl border border-amber-500/20">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+      {/* ── Joya 4: Frecuencia & Control de Notificaciones (Toggles) ── */}
+      <div id="tour-notification-toggles" className="pt-4 border-t border-base-200 flex flex-col gap-4">
+        <div>
+          <h4 className="font-bold text-xs text-base-content flex items-center gap-1.5 uppercase tracking-wider">
+            <BellRing className="w-3.5 h-3.5 text-primary" />
+            Frecuencia & Tipos de Notificación
+          </h4>
+          <p className="text-[11px] text-base-content/60 mt-0.5">
+            Decide exactamente qué comunicaciones automáticas deseas recibir en tus canales activos.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Toggle 1: Resumen Diario 7:00 AM */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-base-200/40 border border-base-200 gap-3">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+                <Sun className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
+                  Resumen Matutino Diario
+                  <span className="badge badge-warning badge-xs py-0.5 px-1.5 text-[9px] font-semibold">07:00 AM</span>
+                </span>
+                <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
+                  Reporte diario con tus actividades del día y tareas urgentes del Cuadrante 1.
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={dailyDigestEnabled}
+              onChange={(e) => handleTogglePreference('daily_digest_enabled', e.target.checked)}
+              className="toggle toggle-primary toggle-sm shrink-0"
+              title="Activar/Desactivar Resumen Diario"
+            />
+          </div>
+
+          {/* Toggle 2: Planificación Semanal */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-base-200/40 border border-base-200 gap-3">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
+                  Planificación Semanal
+                  <span className="badge badge-primary badge-xs py-0.5 px-1.5 text-[9px] font-semibold">Lunes 8 AM</span>
+                </span>
+                <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
+                  Panorama consolidado de entregas y compromisos al inicio de cada semana.
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={weeklyDigestEnabled}
+              onChange={(e) => handleTogglePreference('weekly_digest_enabled', e.target.checked)}
+              className="toggle toggle-primary toggle-sm shrink-0"
+              title="Activar/Desactivar Planificación Semanal"
+            />
+          </div>
+
+          {/* Toggle 3: Recordatorios de Tareas Próximas */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-base-200/40 border border-base-200 gap-3">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-info/10 text-info flex items-center justify-center shrink-0 mt-0.5">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
+                  Recordatorios de Tareas
+                  <span className="badge badge-info badge-xs py-0.5 px-1.5 text-[9px] font-semibold">Tiempo Real</span>
+                </span>
+                <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
+                  Avisos previos según los tiempos de anticipación configurados arriba.
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={taskRemindersEnabled}
+              onChange={(e) => handleTogglePreference('task_reminders_enabled', e.target.checked)}
+              className="toggle toggle-info toggle-sm shrink-0"
+              title="Activar/Desactivar Recordatorios de Tareas"
+            />
+          </div>
+
+          {/* Toggle 4: Alertas de Inicio de Sesión y Nuevos Dispositivos */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-base-200/40 border border-base-200 gap-3">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-success/10 text-success flex items-center justify-center shrink-0 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
+                  Alertas de Nuevo Dispositivo
+                  <span className="badge badge-success badge-xs py-0.5 px-1.5 text-[9px] font-semibold">Seguridad</span>
+                </span>
+                <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
+                  Aviso por correo si se detecta un inicio de sesión desde un navegador o equipo no visto antes.
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={loginAlertsEnabled}
+              onChange={(e) => handleTogglePreference('login_alerts_enabled', e.target.checked)}
+              className="toggle toggle-success toggle-sm shrink-0"
+              title="Activar/Desactivar Alertas de Nuevo Dispositivo"
+            />
+          </div>
+        </div>
+
+        {/* Toggle 5: Modo No Molestar (DND) */}
+        <div className={`flex items-center justify-between p-4 rounded-xl border transition-all gap-3 ${
+          dndEnabled ? 'bg-error/10 border-error/30' : 'bg-base-200/30 border-base-200'
+        }`}>
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Sun className="w-5 h-5" />
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+              dndEnabled ? 'bg-error/20 text-error' : 'bg-base-300/50 text-base-content/60'
+            }`}>
+              <Moon className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-bold text-xs text-base-content flex items-center gap-1.5">
-                  Resumen Académico Diario (Daily Academic Digest)
-                </h4>
-                <span className="badge badge-warning badge-xs font-semibold py-1 px-2 text-[10px]">
-                  07:00 AM Diaria
-                </span>
-              </div>
-              <p className="text-[11px] text-base-content/70 mt-0.5 max-w-xl leading-relaxed">
-                Recibe automáticamente cada mañana a las 7:00 AM un correo oficial con tus actividades del día, alertas de tareas vencidas y compromisos prioritarios del Cuadrante 1.
+              <span className="font-bold text-xs text-base-content flex items-center gap-2">
+                Modo No Molestar / Silenciar Notificaciones (DND)
+                {dndEnabled && (
+                  <span className="badge badge-error badge-xs text-white font-bold py-0.5 px-2">
+                    Activo: Envíos en Pausa
+                  </span>
+                )}
+              </span>
+              <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
+                Pausa temporalmente todos los envíos salientes (recordatorios, resúmenes y avisos) sin perder tu configuración de canales.
               </p>
             </div>
           </div>
+          <input
+            type="checkbox"
+            checked={dndEnabled}
+            onChange={(e) => handleTogglePreference('dnd_enabled', e.target.checked)}
+            className="toggle toggle-error toggle-sm shrink-0"
+            title="Activar/Desactivar Modo No Molestar"
+          />
+        </div>
 
+        {/* Tarjeta de prueba inmediata de Daily Digest */}
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => sendDigest.mutate({ force: true, onlyMe: true })}
-              disabled={sendDigest.isPending}
-              className="btn btn-warning btn-outline btn-xs rounded-lg gap-1.5 font-semibold shadow-xs"
-              title="Disparar un resumen diario inmediato hacia tu correo para verificar el diseño"
-            >
-              {sendDigest.isPending ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Sun className="w-3.5 h-3.5" />
-              )}
-              Enviar Mi Resumen Ahora (Prueba)
-            </button>
+            <Sun className="w-4 h-4 text-amber-500" />
+            <span className="text-xs text-base-content/80 font-medium">
+              ¿Quieres probar cómo luce tu correo diario matutino ahora mismo?
+            </span>
           </div>
+          <button
+            type="button"
+            id="tour-test-digest-btn"
+            onClick={() => sendDigest.mutate({ force: true, onlyMe: true })}
+            disabled={sendDigest.isPending}
+            className="btn btn-warning btn-outline btn-xs rounded-lg gap-1.5 font-semibold shadow-xs"
+            title="Disparar un resumen diario inmediato hacia tu correo para verificar el diseño"
+          >
+            {sendDigest.isPending ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Sun className="w-3.5 h-3.5" />
+            )}
+            Enviar Mi Resumen Ahora (Prueba)
+          </button>
         </div>
       </div>
 

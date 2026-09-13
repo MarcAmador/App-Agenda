@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
@@ -10,25 +11,40 @@ import { PrimeReactProvider } from 'primereact/api'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { TourProvider } from '@/context/TourContext'
+import { FocusTimerProvider } from '@/context/FocusTimerContext'
 import { ProtectedRoute } from '@/components/common/ProtectedRoute'
+import { AdminRoute } from '@/components/common/AdminRoute'
+
+// Páginas core cargadas inmediatamente para experiencia instantánea
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import TareasPage from '@/pages/TareasPage'
-import CalendarioPage from '@/pages/CalendarioPage'
-import MatrizPage from '@/pages/MatrizPage'
-import ConfigPage from '@/pages/ConfigPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
-import { AdminRoute } from '@/components/common/AdminRoute'
-import AdminLayout from '@/pages/admin/AdminLayout'
-import AdminOverviewPage from '@/pages/admin/AdminOverviewPage'
-import AdminUsersPage from '@/pages/admin/AdminUsersPage'
-import AdminTemplatesPage from '@/pages/admin/AdminTemplatesPage'
-import AdminEmailsPage from '@/pages/admin/AdminEmailsPage'
-import AdminSmtpPage from '@/pages/admin/AdminSmtpPage'
-import AdminAuditPage from '@/pages/admin/AdminAuditPage'
-import AdminAlertsPage from '@/pages/admin/AdminAlertsPage'
-import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
-import AdminGoogleOAuthPage from '@/pages/admin/AdminGoogleOAuthPage'
+
+// Páginas secundarias y administrativas con carga diferida (Code-Splitting)
+const CalendarioPage = lazy(() => import('@/pages/CalendarioPage'))
+const MatrizPage = lazy(() => import('@/pages/MatrizPage'))
+const ConfigPage = lazy(() => import('@/pages/ConfigPage'))
+
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'))
+const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage'))
+const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage'))
+const AdminTemplatesPage = lazy(() => import('@/pages/admin/AdminTemplatesPage'))
+const AdminEmailsPage = lazy(() => import('@/pages/admin/AdminEmailsPage'))
+const AdminSmtpPage = lazy(() => import('@/pages/admin/AdminSmtpPage'))
+const AdminAuditPage = lazy(() => import('@/pages/admin/AdminAuditPage'))
+const AdminAlertsPage = lazy(() => import('@/pages/admin/AdminAlertsPage'))
+const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage'))
+const AdminGoogleOAuthPage = lazy(() => import('@/pages/admin/AdminGoogleOAuthPage'))
+
+function PageLoader() {
+  return (
+    <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3">
+      <span className="loading loading-spinner loading-lg text-primary" />
+      <span className="text-xs text-base-content/50 font-medium">Cargando módulo...</span>
+    </div>
+  )
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,77 +64,81 @@ export default function App() {
           <AuthProvider>
             <BrowserRouter>
               <TourProvider>
-                <Routes>
-                {/* Rutas públicas */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                <FocusTimerProvider>
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                    {/* Rutas públicas */}
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
-                {/* Rutas protegidas */}
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <DashboardPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/tareas"
-                  element={
-                    <ProtectedRoute>
-                      <TareasPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/calendario"
-                  element={
-                    <ProtectedRoute>
-                      <CalendarioPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/matriz"
-                  element={
-                    <ProtectedRoute>
-                      <MatrizPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/config"
-                  element={
-                    <ProtectedRoute>
-                      <ConfigPage />
-                    </ProtectedRoute>
-                  }
-                />
+                    {/* Rutas protegidas */}
+                    <Route
+                      path="/"
+                      element={
+                        <ProtectedRoute>
+                          <DashboardPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/tareas"
+                      element={
+                        <ProtectedRoute>
+                          <TareasPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/calendario"
+                      element={
+                        <ProtectedRoute>
+                          <CalendarioPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/matriz"
+                      element={
+                        <ProtectedRoute>
+                          <MatrizPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/config"
+                      element={
+                        <ProtectedRoute>
+                          <ConfigPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                {/* Rutas exclusivas del Panel Administrativo (SuperAdmin) */}
-                <Route
-                  path="/admin"
-                  element={
-                    <AdminRoute>
-                      <AdminLayout />
-                    </AdminRoute>
-                  }
-                >
-                  <Route index element={<AdminOverviewPage />} />
-                  <Route path="usuarios" element={<AdminUsersPage />} />
-                  <Route path="plantillas" element={<AdminTemplatesPage />} />
-                  <Route path="emails" element={<AdminEmailsPage />} />
-                  <Route path="smtp" element={<AdminSmtpPage />} />
-                  <Route path="auditoria" element={<AdminAuditPage />} />
-                  <Route path="alertas" element={<AdminAlertsPage />} />
-                  <Route path="configuracion" element={<AdminSettingsPage />} />
-                  <Route path="oauth" element={<AdminGoogleOAuthPage />} />
-                </Route>
+                    {/* Rutas exclusivas del Panel Administrativo (SuperAdmin) */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <AdminRoute>
+                          <AdminLayout />
+                        </AdminRoute>
+                      }
+                    >
+                      <Route index element={<AdminOverviewPage />} />
+                      <Route path="usuarios" element={<AdminUsersPage />} />
+                      <Route path="plantillas" element={<AdminTemplatesPage />} />
+                      <Route path="emails" element={<AdminEmailsPage />} />
+                      <Route path="smtp" element={<AdminSmtpPage />} />
+                      <Route path="auditoria" element={<AdminAuditPage />} />
+                      <Route path="alertas" element={<AdminAlertsPage />} />
+                      <Route path="configuracion" element={<AdminSettingsPage />} />
+                      <Route path="oauth" element={<AdminGoogleOAuthPage />} />
+                    </Route>
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </TourProvider>
+                    {/* Fallback */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </FocusTimerProvider>
+            </TourProvider>
             </BrowserRouter>
 
             <Toaster

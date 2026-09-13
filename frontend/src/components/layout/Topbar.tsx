@@ -1,17 +1,42 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Menu, User, LogOut, Settings, Sparkles } from 'lucide-react'
+import { Menu, User, LogOut, Settings, Sparkles, Keyboard, Volume2, VolumeX, Download } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useOnboardingTour } from '@/hooks/useOnboardingTour'
+import { usePWAInstall } from '@/hooks/usePWAInstall'
+import { soundEngine } from '@/utils/audioEffects'
+import toast from 'react-hot-toast'
 
 interface TopbarProps {
   onMenuOpen: () => void
   title: string
+  onOpenShortcuts?: () => void
 }
 
-export function Topbar({ onMenuOpen, title }: TopbarProps) {
+export function Topbar({ onMenuOpen, title, onOpenShortcuts }: TopbarProps) {
   const { user, signOut } = useAuth()
   const { startTour } = useOnboardingTour()
+  const { canInstall, promptInstall } = usePWAInstall()
+  const [isMuted, setIsMuted] = useState(() => soundEngine.getMuted())
+
+  useEffect(() => {
+    const handleSoundChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isMuted: boolean }>
+      setIsMuted(customEvent.detail.isMuted)
+    }
+    window.addEventListener('agendapro_sound_toggle', handleSoundChange)
+    return () => window.removeEventListener('agendapro_sound_toggle', handleSoundChange)
+  }, [])
+
+  const handleToggleSound = () => {
+    const muted = soundEngine.toggleMute()
+    setIsMuted(muted)
+    toast(muted ? '🔇 Sonidos desactivados' : '🔊 Sonidos activados', {
+      id: 'sound-toggle',
+      duration: 1800,
+    })
+  }
 
   return (
     <header className="sticky top-0 z-20 bg-base-100/80 backdrop-blur-md border-b border-base-200 px-4 lg:px-6 h-14 flex items-center justify-between gap-4">
@@ -28,8 +53,47 @@ export function Topbar({ onMenuOpen, title }: TopbarProps) {
         <h1 className="text-base font-semibold text-base-content truncate">{title}</h1>
       </div>
 
-      {/* Derecha: Botón Tour + Selector de tema + Avatar */}
-      <div className="flex items-center gap-2.5">
+      {/* Derecha: Atajos + Audio + Botón Tour + Selector de tema + Avatar */}
+      <div className="flex items-center gap-2">
+        {/* Atajos de teclado */}
+        {onOpenShortcuts && (
+          <button
+            type="button"
+            onClick={onOpenShortcuts}
+            className="btn btn-ghost btn-sm btn-circle text-base-content/70 hover:text-base-content hover:bg-base-200 transition-colors hidden sm:inline-flex"
+            title="Atajos de teclado (?)"
+          >
+            <Keyboard className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Silenciar / Activar Sonidos */}
+        <button
+          type="button"
+          onClick={handleToggleSound}
+          className="btn btn-ghost btn-sm btn-circle text-base-content/70 hover:text-base-content hover:bg-base-200 transition-colors"
+          title={isMuted ? 'Activar efectos de sonido' : 'Silenciar efectos de sonido'}
+        >
+          {isMuted ? (
+            <VolumeX className="w-4 h-4 text-base-content/40" />
+          ) : (
+            <Volume2 className="w-4 h-4 text-primary" />
+          )}
+        </button>
+
+        {/* Botón Instalar App (PWA) */}
+        {canInstall && (
+          <button
+            type="button"
+            onClick={promptInstall}
+            className="btn btn-primary btn-sm rounded-xl gap-1.5 text-xs font-semibold shadow-xs hover:shadow-sm"
+            title="Instalar AgendaPro en tu dispositivo"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Instalar App</span>
+          </button>
+        )}
+
         {/* Botón Tour Guiado */}
         <button
           type="button"

@@ -36,9 +36,12 @@ export async function getTasks(filters: TaskFilters = {}): Promise<TaskListRespo
   if (filters.priority)     query = query.eq('priority', filters.priority)
   if (filters.scope_period) query = query.eq('scope_period', filters.scope_period)
   if (filters.search) {
-    query = query.or(
-      `title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`
-    )
+    const sanitized = filters.search.replace(/[,()"]/g, ' ').trim()
+    if (sanitized) {
+      query = query.or(
+        `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`
+      )
+    }
   }
   if (filters.due_from) query = query.gte('due_date', filters.due_from)
   if (filters.due_to)   query = query.lte('due_date', filters.due_to)
@@ -67,18 +70,48 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
   return data as Task
 }
 
-/** Actualización parcial de una tarea */
-export async function updateTask(id: string, input: UpdateTaskInput): Promise<Task> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('tasks') as any)
-    .update(input)
-    .eq('id', id)
-    .is('deleted_at', null)
-    .select()
-    .single()
+function enqueueOfflineAction(action: { type: 'update_task' | 'update_status'; taskId: string; payload: any }) {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = localStorage.getItem('agendapro_offline_queue')
+    const queue = raw ? JSON.parse(raw) : []
+    queue.push({
+      ...action,
+      id: `offline_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: Date.now(),
+    })
+    localStorage.setItem('agendapro_offline_queue', JSON.stringify(queue))
+    window.dispatchEvent(new Event('agendapro_offline_queue_updated'))
+  } catch (err) {
+    console.warn('[OfflineQueue] Error guardando acción offline:', err)
+  }
+}
 
-  if (error) throw error
-  return data as Task
+/** Actualización parcial de una tarea (con soporte resiliente offline) */
+export async function updateTask(id: string, input: UpdateTaskInput): Promise<Task> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    enqueueOfflineAction({ type: 'update_task', taskId: id, payload: input })
+    return { id, ...input } as unknown as Task
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('tasks') as any)
+      .update(input)
+      .eq('id', id)
+      .is('deleted_at', null)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as Task
+  } catch (err) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      enqueueOfflineAction({ type: 'update_task', taskId: id, payload: input })
+      return { id, ...input } as unknown as Task
+    }
+    throw err
+  }
 }
 
 /** Soft-delete: establece deleted_at en la tarea */
@@ -93,6 +126,10 @@ export async function deleteTask(id: string): Promise<void> {
 
 /** Cambia únicamente el estado de una tarea (acción rápida desde DataTable) */
 export async function updateTaskStatus(id: string, status: Task['status']): Promise<Task> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    enqueueOfflineAction({ type: 'update_status', taskId: id, payload: { status } })
+    return { id, status } as unknown as Task
+  }
   return updateTask(id, { status })
 }
 

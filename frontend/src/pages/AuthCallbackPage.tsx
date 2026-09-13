@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
+import toast from 'react-hot-toast'
 
 /**
  * Página de callback del flujo OAuth de Google y flujos de recuperación de contraseña.
@@ -10,6 +11,26 @@ export default function AuthCallbackPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    const hash = window.location.hash
+    const search = window.location.search
+    const combinedParams = new URLSearchParams(search || (hash.startsWith('#') ? hash.slice(1) : hash))
+
+    const error = combinedParams.get('error') || (hash.includes('error=') ? new URLSearchParams(hash.replace(/^#/, '')).get('error') : null)
+    const errorDescription = combinedParams.get('error_description') || (hash.includes('error_description=') ? new URLSearchParams(hash.replace(/^#/, '')).get('error_description') : null)
+
+    if (error) {
+      console.warn('[AuthCallback] Error en flujo de autenticación:', error, errorDescription)
+      toast.error(errorDescription ? decodeURIComponent(errorDescription.replace(/\+/g, ' ')) : 'Autenticación cancelada o fallida.')
+      navigate('/login', { replace: true })
+      return
+    }
+
+    // Verificamos si en el hash o query params viene type=recovery explícito
+    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+      navigate('/login?mode=reset-password', { replace: true })
+      return
+    }
+
     // Escuchamos el evento para redirigir al usuario a su destino
     const {
       data: { subscription },
@@ -18,9 +39,7 @@ export default function AuthCallbackPage() {
         navigate('/login?mode=reset-password', { replace: true })
       } else if (event === 'SIGNED_IN') {
         // Si no es recuperación, redirigir al dashboard
-        const hash = window.location.hash
-        const search = window.location.search
-        if (!hash.includes('type=recovery') && !search.includes('type=recovery')) {
+        if (!window.location.hash.includes('type=recovery') && !window.location.search.includes('type=recovery')) {
           navigate('/', { replace: true })
         }
       } else if (event === 'SIGNED_OUT') {
@@ -28,14 +47,21 @@ export default function AuthCallbackPage() {
       }
     })
 
-    // Verificamos si en el hash o query params viene type=recovery explícito
-    const hash = window.location.hash
-    const search = window.location.search
-    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
-      navigate('/login?mode=reset-password', { replace: true })
-    }
+    // Timeout de seguridad si el navegador no procesa el token en 6 segundos
+    const timer = setTimeout(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          navigate('/', { replace: true })
+        } else {
+          navigate('/login', { replace: true })
+        }
+      })
+    }, 6000)
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(timer)
+      subscription.unsubscribe()
+    }
   }, [navigate])
 
   return (

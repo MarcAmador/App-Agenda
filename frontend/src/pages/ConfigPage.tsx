@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Sparkles, Play } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UserProfileCard } from '@/components/config/UserProfileCard'
@@ -14,6 +15,39 @@ import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 export default function ConfigPage() {
   const { startTour } = useOnboardingTour()
 
+  // Soporte de Deep-linking para enlaces de correo (#notificaciones, #seguridad)
+  useEffect(() => {
+    const handleHashNavigation = () => {
+      const hash = window.location.hash
+      if (hash === '#notificaciones' || hash === '#notificaciones-toggles') {
+        const target =
+          document.getElementById('tour-notification-toggles') ||
+          document.getElementById('tour-notifications-section')
+
+        if (target) {
+          setTimeout(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            target.classList.add('ring-4', 'ring-primary/40', 'rounded-2xl', 'transition-all', 'duration-500')
+            setTimeout(() => {
+              target.classList.remove('ring-4', 'ring-primary/40')
+            }, 3000)
+          }, 200)
+        }
+      } else if (hash === '#seguridad' || hash === '#perfil') {
+        const target = document.getElementById('tour-profile-card')
+        if (target) {
+          setTimeout(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }, 200)
+        }
+      }
+    }
+
+    handleHashNavigation()
+    window.addEventListener('hashchange', handleHashNavigation)
+    return () => window.removeEventListener('hashchange', handleHashNavigation)
+  }, [])
+
   return (
     <AppLayout pageTitle="Configuración">
       <div className="flex flex-col gap-6 animate-fade-in max-w-5xl mx-auto pb-8">
@@ -28,7 +62,9 @@ export default function ConfigPage() {
         </div>
 
         {/* 1. Tarjeta de Perfil */}
-        <UserProfileCard />
+        <div id="tour-profile-card">
+          <UserProfileCard />
+        </div>
 
         {/* 2. Ajustes de Notificaciones y Canales */}
         <div id="tour-notifications-section">
