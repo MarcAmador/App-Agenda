@@ -362,7 +362,7 @@ export function TaskDataTable({
         onSelectionChange={(e: DataTableSelectionMultipleChangeEvent<Task[]>) =>
           setSelectedTasks(e.value)
         }
-        selectionMode="multiple"
+        selectionMode="checkbox"
         header={tableHeader}
         emptyMessage={
           <div className="flex flex-col items-center gap-3 py-12 text-base-content/40">
@@ -381,7 +381,7 @@ export function TaskDataTable({
         stripedRows
         size="small"
       >
-        <Column selectionMode="multiple" style={{ width: '3rem' }} frozen />
+        <Column selectionMode="multiple" headerStyle={{ width: '3.5rem', textAlign: 'center' }} style={{ width: '3.5rem', textAlign: 'center' }} frozen />
 
         <Column
           field="title"

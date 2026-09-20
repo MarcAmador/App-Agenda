@@ -1,12 +1,12 @@
 /* ============================================================
-   ESTILOS GLOBALES — AgendaPro
-   Orden: Google Fonts → PrimeReact theme → Tailwind → Overrides
+   ESTILOS GLOBALES — AgendaPro v2
+   Orden: Google Fonts → PrimeIcons → Tailwind → PrimeReact v11 Overrides
    ============================================================ */
 
 /* 1. Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-/* 2. PrimeReact base styles — deben ir ANTES de Tailwind */
+/* 2. PrimeIcons */
 @import 'primeicons/primeicons.css';
 
 /* 3. Tailwind CSS */
@@ -72,8 +72,6 @@
     border-radius: 0.25rem;
   }
 
-  /* ── Select / Dropdown height fixes ─────────────────────── */
-  /* DaisyUI select-xs era demasiado pequeño para ver el texto */
   .select-xs {
     min-height: 2rem;
     height: 2rem;
@@ -91,10 +89,306 @@
   }
 }
 
+/* ─── Animaciones globales ───────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
-/* ─── PrimeReact: Integración con tokens DaisyUI ─────────── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-/* DataTable */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* ============================================================
+   PRIMEREACT v11 — INTEGRACIÓN CON TOKENS DAISYUI
+   v11 usa clases nuevas: p-select en vez de p-dropdown, etc.
+   ============================================================ */
+
+/* ── Inputs ─────────────────────────────────────────────── */
+.p-inputtext,
+.p-inputnumber-input {
+  background: oklch(var(--b1));
+  border: 1.5px solid oklch(var(--b3));
+  color: oklch(var(--bc));
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.p-inputtext:enabled:focus,
+.p-inputnumber-input:enabled:focus {
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.15);
+  outline: none;
+}
+
+.p-inputtext.p-invalid,
+.p-inputtext:invalid {
+  border-color: oklch(var(--er));
+}
+
+/* Textarea */
+.p-textarea,
+.p-inputtextarea {
+  background: oklch(var(--b1));
+  border: 1.5px solid oklch(var(--b3));
+  color: oklch(var(--bc));
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  resize: none;
+}
+
+.p-textarea:enabled:focus,
+.p-inputtextarea:enabled:focus {
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.15);
+  outline: none;
+}
+
+/* ── Dropdown / Select (v11: .p-select) ─────────────────── */
+.p-select,
+.p-dropdown,
+.p-multiselect {
+  background: oklch(var(--b1));
+  border: 1.5px solid oklch(var(--b3));
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  color: oklch(var(--bc));
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.p-select:not(.p-disabled).p-focus,
+.p-dropdown:not(.p-disabled).p-focus,
+.p-multiselect:not(.p-disabled).p-focus {
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.15);
+  outline: none;
+}
+
+.p-select-label,
+.p-dropdown-label {
+  color: oklch(var(--bc));
+  padding: 0.5rem 0.75rem;
+}
+
+.p-select-overlay,
+.p-dropdown-panel,
+.p-multiselect-panel {
+  background: oklch(var(--b1)) !important;
+  border: 1px solid oklch(var(--b3)) !important;
+  border-radius: 0.875rem !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  color: oklch(var(--bc)) !important;
+  overflow: hidden !important;
+}
+
+.p-select-list,
+.p-dropdown-items,
+.p-multiselect-items {
+  background: oklch(var(--b1)) !important;
+  padding: 0.4rem !important;
+}
+
+.p-select-option,
+.p-dropdown-item,
+.p-multiselect-item {
+  color: oklch(var(--bc)) !important;
+  font-size: 0.8125rem !important;
+  border-radius: 0.5rem !important;
+  margin: 0.125rem 0 !important;
+  padding: 0.5625rem 0.75rem !important;
+  transition: all 0.1s ease !important;
+}
+
+.p-select-option:hover:not(.p-disabled),
+.p-dropdown-item:hover,
+.p-multiselect-item:hover {
+  background: oklch(var(--b2)) !important;
+  color: oklch(var(--bc)) !important;
+}
+
+.p-select-option.p-selected,
+.p-dropdown-item.p-highlight,
+.p-multiselect-item.p-highlight {
+  background: oklch(var(--p) / 0.12) !important;
+  color: oklch(var(--p)) !important;
+  font-weight: 600 !important;
+}
+
+/* ── DatePicker / Calendar (v11) ─────────────────────────── */
+.p-datepicker-input,
+.p-calendar .p-inputtext {
+  background: oklch(var(--b1)) !important;
+  color: oklch(var(--bc)) !important;
+  border: 1.5px solid oklch(var(--b3)) !important;
+  border-radius: 0.625rem !important;
+}
+
+.p-datepicker-dropdown,
+.p-calendar .p-datepicker-trigger {
+  background: oklch(var(--b2)) !important;
+  border: 1.5px solid oklch(var(--b3)) !important;
+  border-left: 0 !important;
+  color: oklch(var(--bc) / 0.7) !important;
+  border-top-right-radius: 0.625rem !important;
+  border-bottom-right-radius: 0.625rem !important;
+  transition: background 0.15s ease !important;
+}
+
+.p-datepicker-dropdown:hover,
+.p-calendar .p-datepicker-trigger:hover {
+  background: oklch(var(--b3)) !important;
+  color: oklch(var(--bc)) !important;
+}
+
+.p-datepicker-panel,
+.p-datepicker {
+  background: oklch(var(--b1)) !important;
+  border: 1px solid oklch(var(--b3)) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25) !important;
+  color: oklch(var(--bc)) !important;
+  padding: 0.75rem !important;
+}
+
+.p-datepicker-header,
+.p-datepicker .p-datepicker-header {
+  background: oklch(var(--b1)) !important;
+  border-bottom: 1px solid oklch(var(--b3)) !important;
+  color: oklch(var(--bc)) !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.p-datepicker-prev-button,
+.p-datepicker-next-button,
+.p-datepicker .p-datepicker-prev,
+.p-datepicker .p-datepicker-next {
+  color: oklch(var(--bc) / 0.7) !important;
+  border-radius: 0.5rem !important;
+}
+
+.p-datepicker-prev-button:hover,
+.p-datepicker-next-button:hover,
+.p-datepicker .p-datepicker-prev:hover,
+.p-datepicker .p-datepicker-next:hover {
+  background: oklch(var(--b2)) !important;
+  color: oklch(var(--bc)) !important;
+}
+
+.p-datepicker-title,
+.p-datepicker .p-datepicker-title {
+  color: oklch(var(--bc)) !important;
+  font-weight: 700 !important;
+}
+
+.p-datepicker-weekday-cell,
+.p-datepicker table th {
+  color: oklch(var(--bc) / 0.5) !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  padding: 0.375rem !important;
+}
+
+.p-datepicker table td { padding: 0.15rem !important; }
+
+.p-datepicker-day,
+.p-datepicker table td > span {
+  color: oklch(var(--bc)) !important;
+  border-radius: 0.5rem !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  font-size: 0.8rem !important;
+  transition: all 0.12s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.p-datepicker-day:hover,
+.p-datepicker table td > span:hover {
+  background: oklch(var(--b2)) !important;
+}
+
+.p-datepicker-day.p-datepicker-today,
+.p-datepicker table td.p-datepicker-today > span {
+  background: oklch(var(--p) / 0.15) !important;
+  color: oklch(var(--p)) !important;
+  font-weight: 700 !important;
+}
+
+.p-datepicker-day.p-selected,
+.p-datepicker table td > span.p-highlight {
+  background: oklch(var(--p)) !important;
+  color: oklch(var(--pc)) !important;
+  font-weight: 700 !important;
+}
+
+/* ── Chips / InputChips (v11) ──────────────────────────── */
+.p-inputchips,
+.p-chips {
+  width: 100%;
+}
+
+.p-inputchips-input,
+.p-chips .p-inputtext {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.625rem;
+  background: oklch(var(--b1));
+  border: 1.5px solid oklch(var(--b3));
+  border-radius: 0.625rem;
+  color: oklch(var(--bc));
+}
+
+.p-inputchips-input:focus-within,
+.p-chips .p-inputtext:focus-within {
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.15);
+  outline: none;
+}
+
+.p-chip-item,
+.p-chips-token {
+  background: oklch(var(--p) / 0.12) !important;
+  color: oklch(var(--p)) !important;
+  border: 1px solid oklch(var(--p) / 0.2) !important;
+  border-radius: 0.375rem !important;
+  padding: 0.2rem 0.5rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+/* ── DataTable ──────────────────────────────────────────── */
 .p-datatable {
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 0.875rem;
@@ -113,7 +407,7 @@
   border-color: oklch(var(--b3));
   color: oklch(var(--bc) / 0.55);
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 0.625rem 0.875rem;
@@ -169,249 +463,15 @@
   color: oklch(var(--pc)) !important;
 }
 
-/* Inputs */
-.p-inputtext {
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--b3));
-  color: oklch(var(--bc));
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-family: 'Inter', system-ui, sans-serif;
-  padding: 0.5rem 0.75rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.p-inputtext:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.15);
-  outline: none;
-}
-
-.p-inputtext.p-invalid {
-  border-color: oklch(var(--er));
-}
-
-/* Dropdown */
-.p-dropdown,
-.p-multiselect {
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--b3));
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.p-dropdown:not(.p-disabled).p-focus,
-.p-multiselect:not(.p-disabled).p-focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.15);
-  outline: none;
-}
-
-.p-dropdown-panel,
-.p-multiselect-panel {
-  background: oklch(var(--b1)) !important;
-  border: 1px solid oklch(var(--b3)) !important;
-  border-radius: 0.75rem !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25) !important;
-  color: oklch(var(--bc)) !important;
-  overflow: hidden !important;
-}
-
-.p-multiselect-header {
-  background: oklch(var(--b2)) !important;
-  color: oklch(var(--bc)) !important;
-  border-bottom: 1px solid oklch(var(--b3)) !important;
-  padding: 0.625rem 0.875rem !important;
-}
-
-.p-multiselect-filter-container,
-.p-dropdown-filter-container {
-  position: relative !important;
-}
-
-.p-multiselect-filter-container .p-inputtext,
-.p-dropdown-filter-container .p-inputtext {
-  background: oklch(var(--b1)) !important;
-  color: oklch(var(--bc)) !important;
-  border: 1px solid oklch(var(--b3)) !important;
-  border-radius: 0.5rem !important;
-  font-size: 0.775rem !important;
-  padding: 0.375rem 0.625rem !important;
-}
-
-.p-multiselect-filter-container .p-multiselect-filter-icon,
-.p-dropdown-filter-container .p-dropdown-filter-icon {
-  color: oklch(var(--bc) / 0.5) !important;
-}
-
-.p-multiselect-close {
-  color: oklch(var(--bc) / 0.6) !important;
-  border-radius: 0.375rem !important;
-}
-
-.p-multiselect-close:hover {
-  background: oklch(var(--b3)) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-.p-dropdown-items,
-.p-multiselect-items {
-  background: oklch(var(--b1)) !important;
-  padding: 0.35rem !important;
-}
-
-.p-dropdown-item,
-.p-multiselect-item {
-  color: oklch(var(--bc)) !important;
-  font-size: 0.8125rem !important;
-  border-radius: 0.375rem !important;
-  margin: 0.125rem 0 !important;
-  padding: 0.5rem 0.75rem !important;
-  transition: all 0.12s ease !important;
-}
-
-.p-dropdown-item:hover,
-.p-multiselect-item:hover {
-  background: oklch(var(--b2)) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-.p-dropdown-item.p-highlight,
-.p-multiselect-item.p-highlight {
-  background: oklch(var(--p) / 0.12) !important;
-  color: oklch(var(--p)) !important;
-  font-weight: 600 !important;
-}
-
-/* Calendar & Datepicker */
-.p-calendar .p-inputtext {
-  background: oklch(var(--b1)) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-.p-calendar .p-datepicker-trigger {
-  background: oklch(var(--b2)) !important;
-  border: 1px solid oklch(var(--b3)) !important;
-  border-left: 0 !important;
-  color: oklch(var(--bc) / 0.7) !important;
-  border-top-right-radius: 0.5rem !important;
-  border-bottom-right-radius: 0.5rem !important;
-  padding: 0 0.75rem !important;
-  transition: background-color 0.15s ease !important;
-}
-
-.p-calendar .p-datepicker-trigger:hover {
-  background: oklch(var(--b3)) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-.p-datepicker {
-  background: oklch(var(--b1)) !important;
-  border: 1px solid oklch(var(--b3)) !important;
-  border-radius: 0.875rem !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28) !important;
-  color: oklch(var(--bc)) !important;
-  padding: 0.625rem !important;
-}
-
-.p-datepicker .p-datepicker-header {
-  background: oklch(var(--b1)) !important;
-  border-bottom: 1px solid oklch(var(--b3)) !important;
-  color: oklch(var(--bc)) !important;
-  padding-bottom: 0.5rem !important;
-}
-
-.p-datepicker .p-datepicker-prev,
-.p-datepicker .p-datepicker-next {
-  color: oklch(var(--bc) / 0.7) !important;
-  border-radius: 0.375rem !important;
-}
-
-.p-datepicker .p-datepicker-prev:hover,
-.p-datepicker .p-datepicker-next:hover {
-  background: oklch(var(--b2)) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-.p-datepicker .p-datepicker-title {
-  color: oklch(var(--bc)) !important;
-  font-weight: 700 !important;
-}
-
-.p-datepicker table {
-  margin-top: 0.5rem !important;
-}
-
-.p-datepicker table th {
-  color: oklch(var(--bc) / 0.55) !important;
-  font-size: 0.7rem !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  padding: 0.375rem !important;
-}
-
-.p-datepicker table td {
-  padding: 0.15rem !important;
-}
-
-.p-datepicker table td > span {
-  color: oklch(var(--bc)) !important;
-  border-radius: 0.5rem !important;
-  width: 2rem !important;
-  height: 2rem !important;
-  font-size: 0.8rem !important;
-  transition: all 0.12s ease !important;
-}
-
-.p-datepicker table td > span:hover {
-  background: oklch(var(--b2)) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-.p-datepicker table td.p-datepicker-today > span {
-  background: oklch(var(--p) / 0.15) !important;
-  color: oklch(var(--p)) !important;
-  font-weight: 700 !important;
-}
-
-.p-datepicker table td > span.p-highlight {
-  background: oklch(var(--p)) !important;
-  color: oklch(var(--pc)) !important;
-  font-weight: 700 !important;
-}
-
-/* DataTable Column Filter Overlays */
-.p-column-filter-overlay {
-  background: oklch(var(--b1)) !important;
-  border: 1px solid oklch(var(--b3)) !important;
-  border-radius: 0.75rem !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-.p-column-filter-row-items .p-column-filter-row-item {
-  color: oklch(var(--bc)) !important;
-}
-
-.p-column-filter-row-items .p-column-filter-row-item:hover {
-  background: oklch(var(--b2)) !important;
-}
-
-.p-column-filter-menu-button {
-  color: oklch(var(--bc) / 0.6) !important;
-}
-
-.p-column-filter-menu-button:hover {
-  background: oklch(var(--b3)) !important;
-  color: oklch(var(--bc)) !important;
-}
-
-/* Dialog Modal */
+/* ── Dialog Modal (Premium v2) ──────────────────────────── */
 .p-dialog {
   background: oklch(var(--b1)) !important;
-  border-radius: 1rem !important;
+  border-radius: 1.25rem !important;
   overflow: hidden;
-  border: 1px solid oklch(var(--b3));
+  border: 1px solid oklch(var(--b3) / 0.7);
+  box-shadow:
+    0 32px 80px -12px rgba(0, 0, 0, 0.35),
+    0 8px 24px -4px rgba(0, 0, 0, 0.15) !important;
 }
 
 .p-dialog .p-dialog-header {
@@ -432,40 +492,40 @@
 }
 
 .p-dialog-mask.p-component-overlay {
-  background: oklch(var(--bc) / 0.35);
-  backdrop-filter: blur(4px);
+  background: oklch(var(--bc) / 0.3);
+  backdrop-filter: blur(6px);
 }
 
-/* OverlayPanel */
+/* ── Task Form Modal — Layout Premium ──────────────────── */
+.task-modal-dialog {
+  max-width: min(860px, 95vw) !important;
+  width: min(860px, 95vw) !important;
+}
+
+.task-modal-dialog .p-dialog-content {
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.task-modal-dialog .p-dialog-header {
+  background: linear-gradient(135deg, oklch(var(--b1)) 0%, oklch(var(--b2) / 0.5) 100%) !important;
+  padding: 1rem 1.5rem !important;
+  border-bottom: 1px solid oklch(var(--b3) / 0.5) !important;
+}
+
+/* ── OverlayPanel ───────────────────────────────────────── */
 .p-overlaypanel {
   background: oklch(var(--b1));
   border: 1px solid oklch(var(--b3));
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 30px oklch(var(--bc) / 0.12);
+  border-radius: 0.875rem;
+  box-shadow: 0 12px 36px oklch(var(--bc) / 0.14);
   padding: 0.25rem;
 }
 
 .p-overlaypanel::before,
 .p-overlaypanel::after { display: none; }
 
-/* Chips */
-.p-chips .p-inputtext {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  min-height: 2.5rem;
-  padding: 0.375rem 0.625rem;
-}
-
-.p-chips-token {
-  background: oklch(var(--p) / 0.15);
-  color: oklch(var(--p));
-  border-radius: 0.375rem;
-  padding: 0.125rem 0.5rem;
-  font-size: 0.75rem;
-}
-
-/* MultiSelect Chips & Tokens */
+/* ── MultiSelect tokens ─────────────────────────────────── */
 .p-multiselect .p-multiselect-label {
   padding: 0.35rem 0.6rem;
   display: flex;
@@ -482,64 +542,32 @@
   padding: 0.15rem 0.5rem !important;
   font-size: 0.75rem !important;
   font-weight: 600 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
 }
 
-.p-multiselect-token-icon {
-  font-size: 0.7rem !important;
-  cursor: pointer !important;
-  opacity: 0.7;
-  transition: opacity 0.15s;
+.p-multiselect-header {
+  background: oklch(var(--b2)) !important;
+  color: oklch(var(--bc)) !important;
+  border-bottom: 1px solid oklch(var(--b3)) !important;
+  padding: 0.625rem 0.875rem !important;
 }
 
-.p-multiselect-token-icon:hover {
-  opacity: 1;
-}
-
-/* Textarea */
-.p-inputtextarea {
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--b3));
-  color: oklch(var(--bc));
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-family: 'Inter', system-ui, sans-serif;
-}
-
-.p-inputtextarea:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.15);
-  outline: none;
-}
-
-/* Confirm Dialog */
-.p-confirm-dialog .p-dialog-header-icon {
-  color: oklch(var(--bc) / 0.6);
-}
-
-/* Loader */
-.p-datatable .p-datatable-loading-overlay {
-  background: oklch(var(--b1) / 0.7);
-  backdrop-filter: blur(2px);
-}
-
-/* Checkbox del DataTable */
+/* ── Checkbox ───────────────────────────────────────────── */
 .p-checkbox .p-checkbox-box {
   background: oklch(var(--b1));
   border: 1.5px solid oklch(var(--b3));
   border-radius: 0.375rem;
   width: 1.125rem;
   height: 1.125rem;
+  transition: all 0.15s;
 }
 
-.p-checkbox .p-checkbox-box.p-highlight {
+.p-checkbox .p-checkbox-box.p-highlight,
+.p-checkbox .p-checkbox-box[data-p-checked="true"] {
   background: oklch(var(--p)) !important;
   border-color: oklch(var(--p)) !important;
 }
 
-/* Tooltip */
+/* ── Tooltip ────────────────────────────────────────────── */
 .p-tooltip .p-tooltip-text {
   background: oklch(var(--b3));
   color: oklch(var(--bc));
@@ -549,15 +577,427 @@
   box-shadow: none;
 }
 
-/* Column filter */
+/* ── Confirm Dialog ─────────────────────────────────────── */
+.p-confirmdialog .p-dialog-header-icon,
+.p-confirm-dialog .p-dialog-header-icon {
+  color: oklch(var(--bc) / 0.6);
+}
+
+/* ── Column Filters ─────────────────────────────────────── */
+.p-column-filter-overlay {
+  background: oklch(var(--b1)) !important;
+  border: 1px solid oklch(var(--b3)) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2) !important;
+  color: oklch(var(--bc)) !important;
+}
+
+.p-column-filter-row-items .p-column-filter-row-item {
+  color: oklch(var(--bc)) !important;
+  border-radius: 0.5rem !important;
+}
+
+.p-column-filter-row-items .p-column-filter-row-item:hover {
+  background: oklch(var(--b2)) !important;
+}
+
+.p-column-filter-menu-button {
+  color: oklch(var(--bc) / 0.6) !important;
+}
+
+.p-column-filter-menu-button:hover {
+  background: oklch(var(--b3)) !important;
+  color: oklch(var(--bc)) !important;
+}
+
 .p-column-filter-row .p-inputtext {
   padding: 0.375rem 0.625rem;
 }
 
-/* ─── Driver.js: Onboarding Popover Premium ───────────────── */
-.driver-overlay {
-  z-index: 999999990 !important;
+/* ── DataTable Loading ──────────────────────────────────── */
+.p-datatable .p-datatable-loading-overlay {
+  background: oklch(var(--b1) / 0.7);
+  backdrop-filter: blur(2px);
 }
+
+/* ============================================================
+   KANBAN BOARD — Task Cards Styles
+   ============================================================ */
+.kanban-board {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  align-items: flex-start;
+}
+
+.kanban-column {
+  flex: 0 0 300px;
+  min-width: 280px;
+  max-width: 320px;
+  background: oklch(var(--b2));
+  border-radius: 1rem;
+  border: 1px solid oklch(var(--b3));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 220px);
+}
+
+.kanban-column-header {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid oklch(var(--b3) / 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  border-radius: 1rem 1rem 0 0;
+}
+
+.kanban-column-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.kanban-card {
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--b3) / 0.6);
+  border-radius: 0.875rem;
+  padding: 0.875rem;
+  cursor: grab;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.kanban-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+
+.kanban-card[data-priority="urgente_importante"]::before { background: oklch(var(--er)); }
+.kanban-card[data-priority="importante_no_urgente"]::before { background: oklch(var(--su)); }
+.kanban-card[data-priority="urgente_no_importante"]::before { background: oklch(var(--wa)); }
+.kanban-card[data-priority="no_urgente_baja"]::before { background: oklch(var(--bc) / 0.2); }
+
+.kanban-card:hover {
+  box-shadow: 0 8px 24px -4px oklch(var(--bc) / 0.12);
+  border-color: oklch(var(--p) / 0.3);
+  transform: translateY(-1px);
+}
+
+.kanban-card:active,
+.kanban-card[data-dragging="true"] {
+  cursor: grabbing;
+  box-shadow: 0 20px 50px -8px oklch(var(--bc) / 0.25);
+  transform: scale(1.02) rotate(0.8deg);
+  z-index: 100;
+  border-color: oklch(var(--p) / 0.5);
+}
+
+.kanban-drop-zone {
+  min-height: 4rem;
+  border: 2px dashed oklch(var(--p) / 0.3);
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: oklch(var(--p) / 0.6);
+  transition: all 0.15s ease;
+  margin-top: 0.5rem;
+}
+
+.kanban-drop-zone[data-active="true"] {
+  border-color: oklch(var(--p));
+  background: oklch(var(--p) / 0.05);
+  color: oklch(var(--p));
+}
+
+/* ============================================================
+   CALENDAR SCHEDULER — Premium Styles
+   ============================================================ */
+.calendar-scheduler {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.calendar-day-grid {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  overflow-y: auto;
+  flex: 1;
+  position: relative;
+}
+
+.calendar-time-slot {
+  min-height: 56px;
+  border-bottom: 1px solid oklch(var(--b3) / 0.5);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.calendar-time-slot:hover {
+  background: oklch(var(--p) / 0.04);
+}
+
+.calendar-time-slot[data-drag-over="true"] {
+  background: oklch(var(--p) / 0.08);
+  border-color: oklch(var(--p) / 0.4);
+}
+
+.calendar-event-chip {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: grab;
+  overflow: hidden;
+  z-index: 2;
+  transition: all 0.15s;
+  border-left: 3px solid;
+  line-height: 1.3;
+}
+
+.calendar-event-chip:hover {
+  z-index: 10;
+  box-shadow: 0 4px 14px oklch(var(--bc) / 0.18);
+  transform: scaleX(1.01);
+}
+
+.calendar-event-chip:active {
+  cursor: grabbing;
+}
+
+/* Filter bar for calendar */
+.calendar-filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid oklch(var(--b3));
+  background: oklch(var(--b2) / 0.5);
+}
+
+.calendar-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1.5px solid oklch(var(--b3));
+  background: oklch(var(--b1));
+  color: oklch(var(--bc) / 0.75);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.calendar-filter-chip:hover {
+  border-color: oklch(var(--p) / 0.5);
+  color: oklch(var(--p));
+}
+
+.calendar-filter-chip[data-active="true"] {
+  background: oklch(var(--p));
+  color: oklch(var(--pc));
+  border-color: oklch(var(--p));
+}
+
+/* ============================================================
+   TASK FORM MODAL — Premium Layout
+   ============================================================ */
+
+/* Panel principal del modal */
+.task-modal-body {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .task-modal-body {
+    grid-template-columns: 1fr 300px;
+    min-height: 560px;
+  }
+}
+
+.task-modal-main {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  max-height: 80vh;
+}
+
+.task-modal-side {
+  background: oklch(var(--b2) / 0.5);
+  border-left: 1px solid oklch(var(--b3) / 0.6);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  max-height: 80vh;
+}
+
+@media (max-width: 639px) {
+  .task-modal-main { max-height: none; }
+  .task-modal-side {
+    border-left: 0;
+    border-top: 1px solid oklch(var(--b3));
+    max-height: none;
+  }
+}
+
+/* Título del modal grande */
+.task-modal-title-input {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid oklch(var(--b3));
+  border-radius: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: oklch(var(--bc));
+  width: 100%;
+  padding: 0.5rem 0;
+  transition: border-color 0.15s;
+  outline: none;
+}
+
+.task-modal-title-input:focus {
+  border-bottom-color: oklch(var(--p));
+  box-shadow: none;
+}
+
+.task-modal-title-input::placeholder {
+  color: oklch(var(--bc) / 0.3);
+  font-weight: 400;
+}
+
+/* Pills de propiedades (Estado, Prioridad, Fecha) */
+.task-property-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1.5px solid oklch(var(--b3));
+  background: oklch(var(--b1));
+  color: oklch(var(--bc) / 0.7);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.task-property-pill:hover {
+  border-color: oklch(var(--p) / 0.5);
+  color: oklch(var(--p));
+  background: oklch(var(--p) / 0.05);
+}
+
+.task-property-pill[data-active="true"] {
+  border-color: oklch(var(--p) / 0.4);
+  background: oklch(var(--p) / 0.08);
+  color: oklch(var(--p));
+}
+
+/* Label de sección en el modal */
+.modal-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: oklch(var(--bc) / 0.45);
+  margin-bottom: 0.5rem;
+}
+
+/* Subtareas en el modal */
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.625rem;
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--b3) / 0.5);
+  transition: all 0.15s;
+}
+
+.subtask-item:hover {
+  border-color: oklch(var(--p) / 0.3);
+}
+
+.subtask-checkbox {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1.5px solid oklch(var(--b3));
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subtask-checkbox[data-checked="true"] {
+  background: oklch(var(--su));
+  border-color: oklch(var(--su));
+}
+
+/* Progress bar de subtareas */
+.subtask-progress-bar {
+  height: 4px;
+  background: oklch(var(--b3));
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.subtask-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, oklch(var(--p)), oklch(var(--s)));
+  border-radius: 9999px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sección colapsable "Más opciones" */
+.advanced-section {
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.advanced-section[data-open="false"] {
+  max-height: 0;
+  opacity: 0;
+}
+
+.advanced-section[data-open="true"] {
+  max-height: 2000px;
+  opacity: 1;
+}
+
+/* ============================================================
+   DRIVER.JS — Onboarding Popover Premium
+   ============================================================ */
+.driver-overlay { z-index: 999999990 !important; }
 
 .driver-popover {
   z-index: 1000000000 !important;
@@ -568,10 +1008,7 @@
   border: 1px solid oklch(var(--b3) / 0.6) !important;
   border-radius: 1.375rem !important;
   padding: 1.625rem 1.5rem 1.375rem !important;
-  box-shadow:
-    0 32px 64px -16px rgba(0, 0, 0, 0.3),
-    0 8px 24px -6px rgba(0, 0, 0, 0.15),
-    0 0 0 1px oklch(var(--b3) / 0.4) !important;
+  box-shadow: 0 32px 64px -16px rgba(0,0,0,.3), 0 8px 24px -6px rgba(0,0,0,.15) !important;
   max-width: 420px !important;
   min-width: 320px !important;
   font-family: 'Inter', system-ui, sans-serif !important;
@@ -583,7 +1020,6 @@
   to   { opacity: 1; }
 }
 
-/* Barra de acento superior (gradiente) — confinada tipo pastilla elegante */
 .driver-popover::before {
   content: '' !important;
   position: absolute !important;
@@ -609,10 +1045,8 @@
   font-size: 0.84rem !important;
   line-height: 1.65 !important;
   color: oklch(var(--bc) / 0.78) !important;
-  margin-bottom: 0 !important;
 }
 
-/* Footer row: progreso a la izquierda, botones a la derecha */
 .driver-popover-footer {
   margin-top: 1.125rem !important;
   padding-top: 0.75rem !important;
@@ -633,35 +1067,30 @@
   border: 1px solid oklch(var(--p) / 0.25) !important;
   letter-spacing: 0.03em !important;
   white-space: nowrap !important;
-  flex-shrink: 0 !important;
 }
 
-/* Contenedor de botones prev/next */
 .driver-popover-navigation-btns {
   display: flex !important;
   gap: 0.5rem !important;
   align-items: center !important;
-  flex-shrink: 0 !important;
 }
 
 .driver-popover-next-btn {
   background: linear-gradient(135deg, #4f46e5 0%, #0284c7 100%) !important;
-  color: #ffffff !important;
+  color: #fff !important;
   border: none !important;
   border-radius: 0.75rem !important;
   font-size: 0.775rem !important;
   font-weight: 700 !important;
   padding: 0.5rem 1.125rem !important;
   cursor: pointer !important;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(79,70,229,.35) !important;
   transition: all 0.2s ease !important;
-  text-shadow: none !important;
-  letter-spacing: 0.01em !important;
 }
 
 .driver-popover-next-btn:hover {
   transform: translateY(-1px) !important;
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45) !important;
+  box-shadow: 0 6px 20px rgba(79,70,229,.45) !important;
 }
 
 .driver-popover-prev-btn {
@@ -673,29 +1102,15 @@
   font-weight: 600 !important;
   padding: 0.5rem 0.875rem !important;
   cursor: pointer !important;
-  text-shadow: none !important;
   transition: all 0.15s ease !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  pointer-events: auto !important;
 }
 
 .driver-popover-prev-btn:hover {
   background: oklch(var(--b3)) !important;
   color: oklch(var(--bc)) !important;
-  border-color: oklch(var(--bc) / 0.2) !important;
 }
 
-.driver-popover-prev-btn:not([disabled]) {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-  opacity: 1 !important;
-}
-
-.driver-popover-prev-btn[disabled] {
-  display: none !important;
-}
+.driver-popover-prev-btn[disabled] { display: none !important; }
 
 .driver-popover-close-btn {
   color: oklch(var(--bc) / 0.35) !important;
@@ -703,7 +1118,6 @@
   top: 14px !important;
   right: 14px !important;
   font-size: 1.1rem !important;
-  line-height: 1 !important;
   width: 24px !important;
   height: 24px !important;
   display: flex !important;
@@ -711,7 +1125,6 @@
   justify-content: center !important;
   border-radius: 50% !important;
   transition: all 0.15s ease !important;
-  background: transparent !important;
 }
 
 .driver-popover-close-btn:hover {
@@ -719,28 +1132,211 @@
   background: oklch(var(--er) / 0.1) !important;
 }
 
-/* Arrow (caret) del popover — corrección de cuadrado a flecha triangular nítida */
-.driver-popover-arrow {
-  border: 6px solid transparent !important;
+.driver-popover-arrow { border: 6px solid transparent !important; }
+.driver-popover-arrow-side-top    { border-top-color: oklch(var(--b1) / 0.98) !important; }
+.driver-popover-arrow-side-bottom { border-bottom-color: oklch(var(--b1) / 0.98) !important; }
+.driver-popover-arrow-side-left   { border-left-color: oklch(var(--b1) / 0.98) !important; }
+.driver-popover-arrow-side-right  { border-right-color: oklch(var(--b1) / 0.98) !important; }
+
+/* ============================================================
+   PULIDO INTEGRAL MODO CLARO & COMPONENTES UI
+   ============================================================ */
+
+/* 1. Checkboxes en Tablas y Modales */
+.p-checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
-.driver-popover-arrow-side-top {
-  border-top-color: oklch(var(--b1) / 0.98) !important;
+.p-checkbox .p-checkbox-box {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  border-radius: 0.375rem !important;
+  border: 2px solid #64748b !important;
+  background-color: #ffffff !important;
+  transition: all 0.15s ease-in-out !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.08) !important;
+  cursor: pointer !important;
 }
 
-.driver-popover-arrow-side-bottom {
-  border-bottom-color: oklch(var(--b1) / 0.98) !important;
+html:not(.dark) .p-checkbox .p-checkbox-box {
+  border: 2px solid #64748b !important;
+  background-color: #ffffff !important;
 }
 
-.driver-popover-arrow-side-left {
-  border-left-color: oklch(var(--b1) / 0.98) !important;
+html.dark .p-checkbox .p-checkbox-box {
+  border: 2px solid rgba(255, 255, 255, 0.35) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-.driver-popover-arrow-side-right {
-  border-right-color: oklch(var(--b1) / 0.98) !important;
+.p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box:hover {
+  border-color: #2563eb !important;
+  background-color: #eff6ff !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
 }
 
+html.dark .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box:hover {
+  border-color: #60a5fa !important;
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2) !important;
+}
 
+.p-checkbox .p-checkbox-box.p-highlight,
+.p-checkbox .p-checkbox-box[data-p-highlight="true"],
+.p-checkbox .p-checkbox-box[data-p-checked="true"] {
+  border-color: #2563eb !important;
+  background-color: #2563eb !important;
+}
 
+html.dark .p-checkbox .p-checkbox-box.p-highlight,
+html.dark .p-checkbox .p-checkbox-box[data-p-highlight="true"],
+html.dark .p-checkbox .p-checkbox-box[data-p-checked="true"] {
+  border-color: #3b82f6 !important;
+  background-color: #2563eb !important;
+}
 
+.p-checkbox .p-checkbox-box .p-checkbox-icon,
+.p-checkbox-box svg,
+.p-checkbox .p-checkbox-icon {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+  min-width: 0.875rem !important;
+  min-height: 0.875rem !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* 2. Toggles de DaisyUI: Sin parpadeo, alto contraste */
+.toggle {
+  border-width: 1.5px !important;
+  border-color: #94a3b8 !important;
+  background-color: #cbd5e1 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html.dark .toggle {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  background-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.toggle:checked,
+.toggle[aria-checked="true"] {
+  border-color: transparent !important;
+  background-color: #2563eb !important;
+}
+
+.toggle-success:checked {
+  background-color: #16a34a !important;
+}
+
+.toggle-info:checked {
+  background-color: #0284c7 !important;
+}
+
+.toggle-error:checked {
+  background-color: #e11d48 !important;
+}
+
+.toggle:hover {
+  filter: brightness(0.96);
+}
+
+/* 3. Cards y Superficies en Modo Claro */
+html:not(.dark) .card,
+[data-theme="light"] .card {
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+}
+
+html:not(.dark) .card:hover,
+[data-theme="light"] .card:hover {
+  border-color: #cbd5e1;
+}
+
+/* 4. Tablas PrimeReact en Modo Claro */
+html:not(.dark) .p-datatable {
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+html:not(.dark) .p-datatable .p-datatable-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+html:not(.dark) .p-datatable .p-datatable-thead > tr > th {
+  background-color: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+html:not(.dark) .p-datatable .p-datatable-tbody > tr {
+  background-color: #ffffff;
+}
+
+html:not(.dark) .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+html:not(.dark) .p-datatable .p-datatable-tbody > tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight,
+html:not(.dark) .p-datatable.p-datatable-striped .p-datatable-tbody > tr.p-highlight,
+html:not(.dark) .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even).p-highlight {
+  background-color: #eff6ff !important;
+  border-left: 3.5px solid #2563eb !important;
+}
+
+html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight > td {
+  background-color: #eff6ff !important;
+}
+
+html:not(.dark) .p-datatable .p-datatable-tbody > tr.p-highlight:hover,
+html:not(.dark) .p-datatable.p-datatable-striped .p-datatable-tbody > tr.p-highlight:hover {
+  background-color: #dbeafe !important;
+}
+
+html.dark .p-datatable .p-datatable-tbody > tr.p-highlight,
+html.dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr.p-highlight {
+  background-color: rgba(37, 99, 235, 0.18) !important;
+  border-left: 3.5px solid #3b82f6 !important;
+}
+
+/* 5. Modales PrimeReact (Diálogos de Enfoque, etc.) */
+.p-dialog {
+  border-radius: 1.5rem !important;
+  overflow: hidden !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+html:not(.dark) .p-dialog {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+html.dark .p-dialog {
+  background: hsl(var(--b1)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.p-dialog-mask.p-component-overlay {
+  background-color: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(4px) !important;
+}
 
