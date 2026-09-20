@@ -25,6 +25,10 @@ export interface VerifyEmailConfig {
   secure: boolean
   user: string
   pass: string
+  email_provider?: 'gmail_api' | 'gmail_smtp' | 'brevo' | 'resend'
+  gmail_client_id?: string
+  gmail_client_secret?: string
+  gmail_refresh_token?: string
 }
 
 export interface VerifyResult {
@@ -35,54 +39,107 @@ export interface VerifyResult {
 }
 
 export function isGmailApiProvider(): boolean {
-  return Boolean(
+  const cfg = smtpStore.get()
+  const hasEnv = Boolean(
     process.env.GMAIL_REFRESH_TOKEN &&
     (process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)
   )
+  const hasStore = Boolean(
+    cfg.gmailRefreshToken && (cfg.gmailClientId || process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)
+  )
+  return hasEnv || hasStore
 }
 
 let cachedAccessToken: { token: string; expiresAt: number } | null = null
 
-export async function getGmailAccessToken(): Promise<string> {
+export function clearGmailAccessTokenCache(): void {
+  cachedAccessToken = null
+}
+
+export async function getGmailAccessToken(customCreds?: {
+  clientId?: string
+  clientSecret?: string
+  refreshToken?: string
+}): Promise<string> {
   const now = Date.now()
-  // Reutilizar token si aún le quedan al menos 2 minutos de vida útil
-  if (cachedAccessToken && cachedAccessToken.expiresAt > now + 120000) {
+  // Reutilizar token si aún le quedan al menos 2 minutos de vida útil (solo si no son credenciales custom temporales)
+  if (!customCreds && cachedAccessToken && cachedAccessToken.expiresAt > now + 120000) {
     return cachedAccessToken.token
   }
 
-  const clientId = (process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim()
-  const clientSecret = (process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim()
-  const refreshToken = (process.env.GMAIL_REFRESH_TOKEN || '').trim()
+  // Asegurar que smtpStore esté sincronizado con BD
+  if (!customCreds && !smtpStore.isDatabaseLoaded()) {
+    await smtpStore.loadFromDatabase()
+  }
+
+  const exchangeToken = async (cId: string, cSec: string, rTok: string) => {
+    const params = new URLSearchParams({
+      client_id: cId,
+      client_secret: cSec,
+      refresh_token: rTok,
+      grant_type: 'refresh_token',
+    })
+
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    })
+
+    const data = (await res.json()) as any
+    return { ok: res.ok, status: res.status, data }
+  }
+
+  let cfg = smtpStore.get()
+  let clientId = (customCreds?.clientId || cfg.gmailClientId || process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim()
+  let clientSecret = (customCreds?.clientSecret || cfg.gmailClientSecret || process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim()
+  let refreshToken = (customCreds?.refreshToken || cfg.gmailRefreshToken || process.env.GMAIL_REFRESH_TOKEN || '').trim()
 
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Faltan credenciales para la Gmail API (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN).')
+    throw new Error('Faltan credenciales para la Gmail API (Client ID, Client Secret, Refresh Token). Configúralas en SuperAdmin > Servidor SMTP.')
   }
 
-  const params = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-    grant_type: 'refresh_token',
-  })
+  let result = await exchangeToken(clientId, clientSecret, refreshToken)
 
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  })
+  // Si falló y no son credenciales custom temporales, reintentar recargando desde Supabase app_settings y releyendo .env
+  if (!result.ok && !customCreds) {
+    console.warn(`[EmailTransport] ⚠️ Intento inicial OAuth falló (${result.data?.error || result.status}). Recargando credenciales desde BD...`)
+    cachedAccessToken = null
+    smtpStore.invalidate()
+    await smtpStore.loadFromDatabase()
+    try {
+      // Releer .env dinámicamente si cambió
+      const dotenv = require('dotenv')
+      dotenv.config()
+    } catch {}
 
-  const data = (await res.json()) as any
-  if (!res.ok || !data.access_token) {
-    throw new Error(`[Google OAuth Error] ${data.error_description || data.error || 'No se pudo obtener el token de acceso'}`)
+    const freshCfg = smtpStore.get()
+    const freshRefreshToken = (freshCfg.gmailRefreshToken || process.env.GMAIL_REFRESH_TOKEN || '').trim()
+    const freshClientId = (freshCfg.gmailClientId || process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim()
+    const freshClientSecret = (freshCfg.gmailClientSecret || process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim()
+
+    if (freshRefreshToken && (freshRefreshToken !== refreshToken || freshClientId !== clientId)) {
+      console.log('[EmailTransport] 🔄 Nuevas credenciales detectadas tras recarga. Reintentando intercambio de token...')
+      clientId = freshClientId
+      clientSecret = freshClientSecret
+      refreshToken = freshRefreshToken
+      result = await exchangeToken(clientId, clientSecret, refreshToken)
+    }
   }
 
-  const expiresInSec = Number(data.expires_in) || 3600
-  cachedAccessToken = {
-    token: data.access_token as string,
-    expiresAt: now + (expiresInSec * 1000),
+  if (!result.ok || !result.data.access_token) {
+    throw new Error(`[Google OAuth Error] ${result.data.error_description || result.data.error || 'No se pudo obtener el token de acceso'}`)
   }
 
-  return cachedAccessToken.token
+  const expiresInSec = Number(result.data.expires_in) || 3600
+  if (!customCreds) {
+    cachedAccessToken = {
+      token: result.data.access_token as string,
+      expiresAt: now + (expiresInSec * 1000),
+    }
+  }
+
+  return result.data.access_token as string
 }
 
 export async function buildRfc822Base64Url(mailOptions: Record<string, any>): Promise<string> {
@@ -156,8 +213,10 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
     (att) => att.cid !== 'logo@agendapro' && att.filename !== 'logo.png'
   )
 
-  // ─── 0. VÍA GMAIL REST API (HTTPS PUERTO 443 — NATIVO DE GOOGLE CON LOGO OFICIAL) ─────
-  if (isGmailApiProvider()) {
+  const provider = cfg.emailProvider || 'gmail_api'
+
+  // ─── 0. VÍA GMAIL REST API (HTTPS PUERTO 443 — PREDETERMINADO) ─────
+  if (provider === 'gmail_api' || isGmailApiProvider()) {
     try {
       const accessToken = await getGmailAccessToken()
       const rawBase64Url = await buildRfc822Base64Url({
@@ -190,15 +249,16 @@ export async function sendEmailMessage(options: SendEmailOptions): Promise<{ mes
       return { messageId }
     } catch (gmailErr: any) {
       console.error('[EmailTransport] ⚠️ Error en Gmail API:', gmailErr.message)
-      if (!isBrevoProvider({ host: cfg.host, pass: effectivePass }) && !isResendProvider({ host: cfg.host, pass: effectivePass })) {
-        throw gmailErr
+      // Si el proveedor explícito configurado en el sistema es Gmail API, NO caer silenciosamente a Brevo
+      if (provider === 'gmail_api') {
+        throw new Error(`[Gmail API Error] ${gmailErr.message}. Verifica que el Refresh Token esté activo en Google Cloud Console.`)
       }
-      console.log('[EmailTransport] Fallback a proveedor secundario (Brevo/Resend)...')
+      console.log('[EmailTransport] Fallback a proveedor secundario...')
     }
   }
 
-  // ─── 1. VÍA BREVO API (HTTPS PUERTO 443 — INMUNE A BLOQUEOS DE RENDER) ─────
-  if (isBrevoProvider({ host: cfg.host, pass: effectivePass })) {
+  // ─── 1. VÍA BREVO API (HTTPS PUERTO 443) ─────
+  if (provider === 'brevo' || (provider !== 'gmail_smtp' && isBrevoProvider({ host: cfg.host, pass: effectivePass }))) {
     const apiKey = process.env.BREVO_API_KEY || effectivePass
 
     // Preparar únicamente adjuntos legítimos explícitos (nunca el logo)
@@ -340,9 +400,20 @@ export async function verifyEmailTransport(config: VerifyEmailConfig): Promise<V
   const cleanHost = (config.host || '').trim().toLowerCase()
 
   // ─── VERIFICAR GMAIL REST API ──────────────────────────────────────────────
-  if (isGmailApiProvider() || (cleanHost.includes('gmail') && cleanPass.startsWith('1//'))) {
+  const isGmailTest =
+    config.email_provider === 'gmail_api' ||
+    Boolean(config.gmail_refresh_token) ||
+    cleanPass.startsWith('1//') ||
+    (cleanHost.includes('gmail') && !cleanHost.includes('smtp')) ||
+    isGmailApiProvider()
+
+  if (isGmailTest) {
     try {
-      const accessToken = await getGmailAccessToken()
+      const accessToken = await getGmailAccessToken({
+        clientId: config.gmail_client_id,
+        clientSecret: config.gmail_client_secret,
+        refreshToken: config.gmail_refresh_token,
+      })
       const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
         headers: {
           Authorization: `Bearer ${accessToken}`,

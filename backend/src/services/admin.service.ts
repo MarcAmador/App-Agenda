@@ -4,7 +4,7 @@ import { SUPER_ADMIN_EMAILS } from '../middlewares/admin.middleware'
 import { smtpStore } from '../config/smtpStore'
 import { notificationDispatcher } from './dispatcher/notification.dispatcher'
 import { getEmailLogoUrl } from '../utils/emailAssets'
-import { sendEmailMessage, verifyEmailTransport, isGmailApiProvider, isBrevoProvider, isResendProvider } from './email/emailTransport'
+import { sendEmailMessage, verifyEmailTransport, isGmailApiProvider, isBrevoProvider, isResendProvider, clearGmailAccessTokenCache } from './email/emailTransport'
 
 // ─── Tipos e Interfaces ────────────────────────────────────────────────────────
 
@@ -70,6 +70,11 @@ export interface AppSettingsData {
   timezone: string
   default_language: string
   is_gmail_api_configured?: boolean
+  email_provider?: 'gmail_api' | 'gmail_smtp' | 'brevo' | 'resend'
+  gmail_client_id?: string
+  gmail_client_secret?: string
+  gmail_refresh_token?: string
+  ui_feature_permissions?: Record<string, boolean>
 }
 
 // ─── Plantillas por defecto (Fallback seguro) ──────────────────────────────────
@@ -222,12 +227,82 @@ let memorySettings: AppSettingsData = {
   quiet_hours_end: '07:00',
   timezone: 'America/Guatemala',
   default_language: 'es',
+  email_provider: 'gmail_api',
+  gmail_client_id: process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '',
+  gmail_client_secret: process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '',
+  gmail_refresh_token: process.env.GMAIL_REFRESH_TOKEN || '',
+  ui_feature_permissions: {
+    showDashboardWelcome: true,
+    showDashboardKpis: true,
+    showDashboardPriorityDistribution: true,
+    showDashboardUpcoming: true,
+    showDashboardQuickModules: true,
+    showTasksKpis: true,
+    showTasksQuickNav: true,
+    showTasksViewSelector: true,
+    showTasksExport: true,
+    showCalendarKpis: true,
+    showCalendarQuickNav: true,
+    showMatrixKpis: true,
+    showMatrixQuickNav: true,
+    showNewTaskTemplates: true,
+    showNewTaskAI: true,
+    showNewTaskResources: true,
+    showNewTaskParticipants: true,
+    showNewTaskMaterials: true,
+    viewModeKanban: true,
+    viewModeCalendario: true,
+    viewModeMatriz: true,
+    autoArchiveCompleted: true,
+    enableTour: true,
+  },
 }
 
 let memoryTemplates: Record<string, EmailTemplateItem> = DEFAULT_TEMPLATES.reduce(
   (acc, t) => ({ ...acc, [t.slug]: t }),
   {}
 )
+
+const THEME_COMMENT_REGEX = /<!--\s*__AGY_THEME__:(\{.*?\})\s*-->/s
+
+export function extractThemeFromBody(bodyHtml: string): {
+  cleanHtml: string
+  theme: {
+    theme_gradient?: string
+    theme_pattern?: string
+    button_color?: string
+    button_shape?: string
+  }
+} {
+  const match = (bodyHtml || '').match(THEME_COMMENT_REGEX)
+  if (!match) return { cleanHtml: bodyHtml || '', theme: {} }
+  try {
+    const theme = JSON.parse(match[1])
+    const cleanHtml = (bodyHtml || '').replace(THEME_COMMENT_REGEX, '').trim()
+    return { cleanHtml, theme }
+  } catch {
+    return { cleanHtml: bodyHtml || '', theme: {} }
+  }
+}
+
+export function injectThemeIntoBody(
+  bodyHtml: string,
+  theme: {
+    theme_gradient?: string
+    theme_pattern?: string
+    button_color?: string
+    button_shape?: string
+  }
+): string {
+  const cleanHtml = (bodyHtml || '').replace(THEME_COMMENT_REGEX, '').trim()
+  const themePayload = {
+    theme_gradient: theme.theme_gradient || undefined,
+    theme_pattern: theme.theme_pattern || undefined,
+    button_color: theme.button_color || undefined,
+    button_shape: theme.button_shape || undefined,
+  }
+  return `${cleanHtml}\n<!-- __AGY_THEME__:${JSON.stringify(themePayload)} -->`
+}
 
 // ─── Helper de Registro de Auditoría ──────────────────────────────────────────
 
@@ -640,12 +715,41 @@ export class AdminService {
     try {
       const { data, error } = await supabaseAdmin.from('email_templates').select('*')
       if (!error && data && data.length > 0) {
-        return data as EmailTemplateItem[]
+        data.forEach((row: any) => {
+          const { cleanHtml, theme } = extractThemeFromBody(row.body_html || '')
+          const headerGradient = row.theme_gradient || theme.theme_gradient || memoryTemplates[row.slug]?.theme_gradient
+          const themePattern = row.theme_pattern || theme.theme_pattern || memoryTemplates[row.slug]?.theme_pattern
+          const buttonColor = row.button_color || theme.button_color || memoryTemplates[row.slug]?.button_color
+          const buttonShape = row.button_shape || theme.button_shape || memoryTemplates[row.slug]?.button_shape
+
+          const item: EmailTemplateItem = {
+            ...DEFAULT_TEMPLATES.find((d) => d.slug === row.slug),
+            ...row,
+            body_html: cleanHtml,
+            theme_gradient: headerGradient,
+            theme_pattern: themePattern,
+            button_color: buttonColor,
+            button_shape: buttonShape,
+          }
+          memoryTemplates[row.slug] = item
+
+          smtpStore.setTemplateStyle(row.slug, {
+            headerGradient,
+            buttonColor,
+            buttonRadius: buttonShape === 'pill' ? '9999px' : buttonShape === 'square' ? '4px' : '12px',
+            showGeometric: themePattern !== 'none',
+          })
+        })
+        return Object.values(memoryTemplates)
       }
     } catch (e) {
       console.warn('[getTemplates] Fallback en memoria:', e)
     }
     return Object.values(memoryTemplates)
+  }
+
+  static getTemplateSync(slug: string): EmailTemplateItem | undefined {
+    return memoryTemplates[slug] || DEFAULT_TEMPLATES.find((t) => t.slug === slug)
   }
 
   /**
@@ -656,29 +760,67 @@ export class AdminService {
     data: Partial<EmailTemplateItem>,
     actorEmail: string
   ): Promise<EmailTemplateItem> {
+    const prev = memoryTemplates[slug] || DEFAULT_TEMPLATES.find((t) => t.slug === slug) || {}
     const updated: EmailTemplateItem = {
-      ...memoryTemplates[slug],
+      ...prev,
       ...data,
       slug,
       updated_at: new Date().toISOString(),
     }
     memoryTemplates[slug] = updated
 
+    smtpStore.setTemplateStyle(slug, {
+      headerGradient: updated.theme_gradient,
+      buttonColor: updated.button_color,
+      buttonRadius: updated.button_shape === 'pill' ? '9999px' : updated.button_shape === 'square' ? '4px' : '12px',
+      showGeometric: updated.theme_pattern !== 'none',
+    })
+
+    const theme = {
+      theme_gradient: updated.theme_gradient,
+      theme_pattern: updated.theme_pattern,
+      button_color: updated.button_color,
+      button_shape: updated.button_shape,
+    }
+
+    const bodyWithTheme = injectThemeIntoBody(updated.body_html || '', theme)
+
     try {
-      await supabaseAdmin.from('email_templates').upsert({
+      const fullPayload: Record<string, any> = {
         slug,
         name: updated.name,
         description: updated.description,
         subject: updated.subject,
         header_title: updated.header_title,
-        body_html: updated.body_html,
+        body_html: bodyWithTheme,
         button_text: updated.button_text,
         button_url: updated.button_url,
         footer_text: updated.footer_text,
         available_variables: updated.available_variables,
         is_active: updated.is_active,
+        theme_gradient: updated.theme_gradient,
+        theme_pattern: updated.theme_pattern,
+        button_color: updated.button_color,
+        button_shape: updated.button_shape,
         updated_at: updated.updated_at,
-      })
+      }
+
+      const { error: upsertErr } = await supabaseAdmin.from('email_templates').upsert(fullPayload, { onConflict: 'slug' })
+      if (upsertErr) {
+        const safePayload = { ...fullPayload }
+        delete safePayload.theme_gradient
+        delete safePayload.theme_pattern
+        delete safePayload.button_color
+        delete safePayload.button_shape
+        const { error: safeErr } = await supabaseAdmin.from('email_templates').upsert(safePayload, { onConflict: 'slug' })
+        if (safeErr) {
+          console.warn('[updateTemplate] Error al persistir plantilla en Supabase:', safeErr.message)
+        } else {
+          console.log(`[updateTemplate] ✅ Plantilla ${slug} guardada en Supabase con metadatos de diseño embebidos.`)
+        }
+      } else {
+        console.log(`[updateTemplate] ✅ Plantilla ${slug} guardada exitosamente en Supabase.`)
+      }
     } catch (err) {
       console.warn('[updateTemplate] Upsert email_templates fallback:', err)
     }
@@ -688,10 +830,13 @@ export class AdminService {
       action: 'EMAIL_TEMPLATE_UPDATED',
       resourceType: 'template',
       resourceId: slug,
-      details: { slug, subject: updated.subject },
+      details: { slug, subject: updated.subject, theme_gradient: updated.theme_gradient },
     })
 
-    return updated
+    return {
+      ...updated,
+      body_html: extractThemeFromBody(updated.body_html || '').cleanHtml,
+    }
   }
 
   /**
@@ -702,6 +847,9 @@ export class AdminService {
     recipientEmail: string,
     customVariables: Record<string, string> = {}
   ): Promise<{ messageId: string }> {
+    if (!memoryTemplates[slug]?.theme_gradient) {
+      await AdminService.getTemplates().catch(() => {})
+    }
     const template = memoryTemplates[slug] || DEFAULT_TEMPLATES.find((t) => t.slug === slug)
     if (!template) {
       throw new Error(`Plantilla no encontrada: ${slug}`)
@@ -912,10 +1060,12 @@ export class AdminService {
       console.warn('[getSettings] Fallback en memoria:', e)
     }
 
-    // Retorna una copia con la contraseña oculta para seguridad
+    // Retorna una copia con la contraseña y credenciales sensibles ocultas para seguridad
     return {
       ...memorySettings,
       smtp_pass: memorySettings.smtp_pass ? '••••••••••••••••' : '',
+      gmail_client_secret: memorySettings.gmail_client_secret ? '••••••••••••••••' : '',
+      gmail_refresh_token: memorySettings.gmail_refresh_token ? '••••••••••••••••' : '',
       is_gmail_api_configured: isGmailApiProvider(),
     }
   }
@@ -933,6 +1083,13 @@ export class AdminService {
     } else {
       // Limpiar espacios en blanco (ej: contraseñas de app de Google vienen en bloques de 4 con espacios)
       data.smtp_pass = data.smtp_pass.replace(/\s+/g, '')
+    }
+
+    if (!data.gmail_client_secret || data.gmail_client_secret.includes('•••') || data.gmail_client_secret.includes('•')) {
+      delete data.gmail_client_secret
+    }
+    if (!data.gmail_refresh_token || data.gmail_refresh_token.includes('•••') || data.gmail_refresh_token.includes('•')) {
+      delete data.gmail_refresh_token
     }
 
     if (data.smtp_user) {
@@ -958,24 +1115,43 @@ export class AdminService {
       fromName: memorySettings.smtp_from_name,
       fromEmail: memorySettings.smtp_from_email,
       appName: memorySettings.app_name,
+      emailProvider: memorySettings.email_provider || 'gmail_api',
+      gmailClientId: memorySettings.gmail_client_id || '',
+      gmailClientSecret: memorySettings.gmail_client_secret || '',
+      gmailRefreshToken: memorySettings.gmail_refresh_token || '',
       ...(updatedAppUrl ? { appUrl: updatedAppUrl } : {}),
     })
 
-    // Reiniciar el transporter cacheado en el EmailAdapter para que use la nueva config
+    // Reiniciar el transporter cacheado en el EmailAdapter y caché de Gmail OAuth
     try {
+      clearGmailAccessTokenCache()
       notificationDispatcher.resetEmailAdapter()
-      console.log('[AdminService] 🔄 EmailAdapter transporter reseteado con la nueva configuración SMTP.')
+      console.log('[AdminService] 🔄 EmailAdapter transporter y Gmail token reseteados con la nueva configuración.')
     } catch (e) {
       console.warn('[AdminService] No se pudo resetear el EmailAdapter:', e)
     }
 
     try {
-      const dbPayload = { ...memorySettings }
-      await supabaseAdmin.from('app_settings').upsert({
+      const dbPayload: Record<string, any> = { ...memorySettings }
+      const { error: dbErr } = await supabaseAdmin.from('app_settings').upsert({
         id: 'global_config',
         ...dbPayload,
         updated_at: new Date().toISOString(),
       })
+      if (dbErr && (dbErr.message?.includes('column') || dbErr.code === '42703')) {
+        console.warn('[updateSettings] Columnas nuevas pendientes en Supabase SQL Editor. Guardando campos base...')
+        const safePayload = { ...dbPayload }
+        delete safePayload.email_provider
+        delete safePayload.gmail_client_id
+        delete safePayload.gmail_client_secret
+        delete safePayload.gmail_refresh_token
+        delete safePayload.ui_feature_permissions
+        await supabaseAdmin.from('app_settings').upsert({
+          id: 'global_config',
+          ...safePayload,
+          updated_at: new Date().toISOString(),
+        })
+      }
     } catch (err) {
       console.warn('[updateSettings] Upsert app_settings fallback:', err)
     }
@@ -988,7 +1164,6 @@ export class AdminService {
       details: {
         appName: memorySettings.app_name,
         smtpUser: memorySettings.smtp_user,
-        globalBanner: memorySettings.global_banner_enabled,
       },
     })
 
@@ -996,7 +1171,7 @@ export class AdminService {
   }
 
   /**
-   * Diagnóstico de conexión SMTP en vivo
+   * Verifica la conectividad con el servidor SMTP o Gmail API
    */
   static async testSmtp(config: {
     host: string
@@ -1004,8 +1179,39 @@ export class AdminService {
     secure: boolean
     user: string
     pass: string
+    email_provider?: 'gmail_api' | 'gmail_smtp' | 'brevo' | 'resend'
+    gmail_client_id?: string
+    gmail_client_secret?: string
+    gmail_refresh_token?: string
   }): Promise<{ success: boolean; latencyMs: number; message: string; details: Record<string, unknown> }> {
-    const startTime = Date.now()
+    const isGmailTest =
+      config.email_provider === 'gmail_api' ||
+      Boolean(config.gmail_refresh_token && !config.gmail_refresh_token.includes('•')) ||
+      (config.host && config.host.includes('gmail') && !config.host.includes('smtp'))
+
+    if (isGmailTest) {
+      const clientId = (config.gmail_client_id && !config.gmail_client_id.includes('•'))
+        ? config.gmail_client_id
+        : memorySettings.gmail_client_id || process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || ''
+      const clientSecret = (config.gmail_client_secret && !config.gmail_client_secret.includes('•'))
+        ? config.gmail_client_secret
+        : memorySettings.gmail_client_secret || process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || ''
+      const refreshToken = (config.gmail_refresh_token && !config.gmail_refresh_token.includes('•'))
+        ? config.gmail_refresh_token
+        : memorySettings.gmail_refresh_token || process.env.GMAIL_REFRESH_TOKEN || ''
+
+      return await verifyEmailTransport({
+        host: config.host || 'gmail.googleapis.com',
+        port: 443,
+        secure: true,
+        user: config.user || memorySettings.smtp_user,
+        pass: refreshToken,
+        email_provider: 'gmail_api',
+        gmail_client_id: clientId,
+        gmail_client_secret: clientSecret,
+        gmail_refresh_token: refreshToken,
+      })
+    }
 
     // Si la contraseña viene enmascarada (•••) o vacía, usar la guardada en memoria/BD
     const effectivePass = (config.pass && !config.pass.includes('•'))
@@ -1018,7 +1224,7 @@ export class AdminService {
       return {
         success: false,
         latencyMs: 0,
-        message: 'Fallo: Debes ingresar el usuario (correo) y la contraseña de aplicación de 16 caracteres para probar la conexión.',
+        message: 'Fallo: Debes ingresar el usuario (correo) y la contraseña para probar la conexión.',
         details: { error: 'Credenciales incompletas' },
       }
     }

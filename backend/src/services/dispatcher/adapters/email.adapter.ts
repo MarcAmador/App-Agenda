@@ -194,6 +194,11 @@ ${appUrl}/tareas
   private generateHtml(payload: NotificationPayload): string {
     const appUrl = smtpStore.get().appUrl
     const logoUrl = getEmailLogoUrl(appUrl)
+    const tplStyle = smtpStore.getTemplateStyle('recordatorio_tarea')
+    const headerGradient = tplStyle.headerGradient
+    const buttonColor = tplStyle.buttonColor
+    const buttonRadius = tplStyle.buttonRadius
+    const showGeometric = tplStyle.showGeometric
     const priorityColor =
       payload.priority?.toLowerCase().includes('urgente') && payload.priority?.toLowerCase().includes('importante')
         ? '#ef4444' // Q1 Red
@@ -218,9 +223,20 @@ ${appUrl}/tareas
         <!-- Contenedor Principal -->
         <table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0;">
           
-          <!-- Encabezado con Degradado -->
+          <!-- Encabezado con Degradado y Formas Geométricas -->
           <tr>
-            <td style="background: linear-gradient(135deg, #4f46e5 0%, #0284c7 50%, #06b6d4 100%); padding: 36px 32px; text-align: center;">
+            <td style="background: ${headerGradient}; padding: 36px 32px; text-align: center; position: relative; overflow: hidden;">
+              ${
+                showGeometric
+                  ? `<!-- Formas Geométricas Abstractas -->
+              <table cellpadding="0" cellspacing="0" border="0" style="position: absolute; right: -20px; top: -20px; opacity: 0.15; pointer-events: none;">
+                <tr><td><div style="width: 140px; height: 140px; border-radius: 50%; background: #ffffff;"></div></td></tr>
+              </table>
+              <table cellpadding="0" cellspacing="0" border="0" style="position: absolute; right: 80px; bottom: -30px; opacity: 0.12; pointer-events: none;">
+                <tr><td><div style="width: 80px; height: 80px; border-radius: 18px; background: #ffffff; transform: rotate(25deg);"></div></td></tr>
+              </table>`
+                  : ''
+              }
               <table width="100%" border="0" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
@@ -312,7 +328,7 @@ ${appUrl}/tareas
               <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${appUrl}/tareas" target="_blank" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #4f46e5 0%, #0284c7 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
+                    <a href="${appUrl}/tareas" target="_blank" style="display: inline-block; padding: 14px 32px; background: ${buttonColor}; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: ${buttonRadius}; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);">
                       Abrir en AgendaPro →
                     </a>
                   </td>

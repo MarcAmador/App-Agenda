@@ -367,10 +367,10 @@ export class NotificationDispatcher {
   }
 
   /**
-   * Despacha el Daily Academic Digest (Resumen Matutino de las 7:00 AM)
+   * Despacha el Daily Academic Digest (Resumen Matutino programado)
    * a todos los usuarios con tareas activas o compromisos pendientes.
    */
-  async dispatchDailyDigests(options?: { targetUserId?: string; force?: boolean }): Promise<{ processed: number; sent: number; failed: number }> {
+  async dispatchDailyDigests(options?: { targetUserId?: string; force?: boolean; currentHour?: number }): Promise<{ processed: number; sent: number; failed: number }> {
     const localToday = getTodayInTimezone('America/Guatemala')
     let processed = 0
     let sent = 0
@@ -411,12 +411,21 @@ export class NotificationDispatcher {
         if (!options?.force) {
           const { data: userPrefs } = await supabaseAdmin
             .from('user_preferences')
-            .select('daily_digest_enabled, dnd_enabled')
+            .select('daily_digest_enabled, daily_digest_time, dnd_enabled')
             .eq('user_id', user.id)
             .maybeSingle()
 
           if (userPrefs && (userPrefs.daily_digest_enabled === false || userPrefs.dnd_enabled === true)) {
             continue
+          }
+
+          if (options?.currentHour !== undefined) {
+            const userPrefHour = userPrefs?.daily_digest_time
+              ? parseInt(userPrefs.daily_digest_time.split(':')[0], 10)
+              : 7
+            if (userPrefHour !== options.currentHour) {
+              continue
+            }
           }
         }
 
@@ -535,6 +544,145 @@ export class NotificationDispatcher {
       }
     } catch (globalErr) {
       console.error('[NotificationDispatcher] Error general en dispatchDailyDigests:', globalErr)
+    }
+
+    return { processed, sent, failed }
+  }
+
+  /**
+   * Despacha el Weekly Digest (Resumen Semanal de Planificación)
+   * con la plantilla oficial 'resumen_semanal' configurada por el SuperAdmin.
+   */
+  async dispatchWeeklyDigests(options?: {
+    targetUserId?: string
+    force?: boolean
+    currentHour?: number
+    currentDay?: string
+  }): Promise<{ processed: number; sent: number; failed: number }> {
+    let processed = 0
+    let sent = 0
+    let failed = 0
+
+    try {
+      let allUsers: any[] = []
+      let page = 1
+      const perPage = 200
+
+      while (true) {
+        const { data: usersList, error: uErr } = await supabaseAdmin.auth.admin.listUsers({
+          page,
+          perPage,
+        })
+        if (uErr) break
+        if (!usersList?.users || usersList.users.length === 0) break
+        allUsers.push(...usersList.users)
+        if (usersList.users.length < perPage) break
+        page++
+      }
+
+      if (allUsers.length === 0) return { processed, sent, failed }
+
+      const sixDaysAgoUtc = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
+
+      for (const user of allUsers) {
+        if (!user.email) continue
+        if (options?.targetUserId && user.id !== options.targetUserId) continue
+
+        // 0. Preferencias
+        const { data: userPrefs } = await supabaseAdmin
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (!options?.force) {
+          if (userPrefs && (userPrefs.weekly_digest_enabled === false || userPrefs.dnd_enabled === true)) {
+            continue
+          }
+
+          if (options?.currentHour !== undefined) {
+            const prefHour = userPrefs?.weekly_digest_time ? parseInt(userPrefs.weekly_digest_time.split(':')[0], 10) : 8
+            if (prefHour !== options.currentHour) continue
+          }
+
+          if (options?.currentDay !== undefined) {
+            const prefDay = (userPrefs?.weekly_digest_day || 'monday').toLowerCase()
+            const dayMap: Record<string, string> = {
+              lunes: 'monday',
+              martes: 'tuesday',
+              miercoles: 'wednesday',
+              miércoles: 'wednesday',
+              jueves: 'thursday',
+              viernes: 'friday',
+              sabado: 'saturday',
+              sábado: 'saturday',
+              domingo: 'sunday',
+            }
+            const normalizedPrefDay = dayMap[prefDay] || prefDay
+            const normalizedCurrentDay = dayMap[options.currentDay.toLowerCase()] || options.currentDay.toLowerCase()
+            if (normalizedPrefDay !== normalizedCurrentDay) continue
+          }
+
+          // 1. Evitar duplicados en los últimos 6 días
+          const { data: alreadySent } = await supabaseAdmin
+            .from('system_email_logs')
+            .select('id')
+            .eq('recipient_email', user.email)
+            .eq('template_slug', 'resumen_semanal')
+            .gte('created_at', sixDaysAgoUtc)
+            .maybeSingle()
+
+          if (alreadySent) continue
+        }
+
+        // 2. Obtener tareas activas del usuario
+        const { data: userTasks } = await supabaseAdmin
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .is('deleted_at', null)
+          .in('status', ['pendiente', 'en_curso'])
+
+        const tasks = userTasks ?? []
+        if (tasks.length === 0 && !options?.force) continue
+
+        processed++
+
+        const userName =
+          (user.user_metadata?.full_name as string) ??
+          (user.user_metadata?.name as string) ??
+          user.email.split('@')[0]
+
+        const urgentCount = tasks.filter((t) => t.priority === 'urgente_importante').length
+
+        let taskListHtml = `
+          <div style="margin: 16px 0; padding: 14px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; text-transform: uppercase;">
+              📋 Panorama de Actividades para esta semana (${tasks.length}):
+            </h4>
+            <ul style="margin: 0; padding-left: 18px; font-size: 13.5px; color: #334155; line-height: 1.6;">
+              ${tasks.slice(0, 8).map((t) => `<li><strong>${t.title}</strong> ${t.due_date ? `<span style="color: #64748b;">(fecha: ${t.due_date})</span>` : ''} — <span style="font-weight: 600; color: ${t.priority === 'urgente_importante' ? '#dc2626' : '#2563eb'}">${t.priority === 'urgente_importante' ? '🚨 Urgente' : 'Planificada'}</span></li>`).join('')}
+            </ul>
+          </div>
+        `
+
+        try {
+          await AdminService.sendTestTemplateEmail('resumen_semanal', user.email, {
+            name: userName,
+            summary_intro: `¡Hola, ${userName}! Te compartimos el panorama de tus compromisos y actividades docentes para esta semana. Cuentas con <strong>${tasks.length} tareas activas</strong>${urgentCount > 0 ? `, incluyendo <strong>${urgentCount} de alta prioridad</strong>` : ''}.`,
+            tasks_week_count: String(tasks.length),
+            urgent_tasks_count: String(urgentCount),
+            task_list_html: taskListHtml,
+          })
+          sent++
+          console.log(`[NotificationDispatcher] 📅 Resumen Semanal enviado a ${user.email}.`)
+        } catch (err: any) {
+          failed++
+          console.error(`[NotificationDispatcher] ❌ Error enviando Resumen Semanal a ${user.email}:`, err.message)
+        }
+      }
+    } catch (globalErr) {
+      console.error('[NotificationDispatcher] Error general en dispatchWeeklyDigests:', globalErr)
     }
 
     return { processed, sent, failed }

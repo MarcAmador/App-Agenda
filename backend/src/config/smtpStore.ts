@@ -21,6 +21,11 @@ export interface SmtpConfig {
   /** URL pública del frontend para los botones en los correos */
   appUrl: string
   appName: string
+  /** Proveedor activo de correo ('gmail_api' | 'gmail_smtp' | 'brevo' | 'resend') */
+  emailProvider: 'gmail_api' | 'gmail_smtp' | 'brevo' | 'resend'
+  gmailClientId: string
+  gmailClientSecret: string
+  gmailRefreshToken: string
 }
 
 class SmtpConfigStore {
@@ -34,6 +39,10 @@ class SmtpConfigStore {
     fromEmail: process.env.SMTP_USER || '',
     appUrl: (process.env.FRONTEND_URL || process.env.APP_URL || process.env.CORS_ORIGIN || 'http://localhost:5180').replace(/\/$/, ''),
     appName: 'AgendaPro',
+    emailProvider: (process.env.EMAIL_PROVIDER as any) || 'gmail_api',
+    gmailClientId: (process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim(),
+    gmailClientSecret: (process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+    gmailRefreshToken: (process.env.GMAIL_REFRESH_TOKEN || '').trim(),
   }
 
   private isLoaded = false
@@ -94,10 +103,14 @@ class SmtpConfigStore {
           fromName: cleanFromName,
           fromEmail: (data as any).smtp_from_email || (data as any).smtp_user,
           appName: cleanAppName,
+          emailProvider: (data as any).email_provider || this.config.emailProvider || 'gmail_api',
+          gmailClientId: (data as any).gmail_client_id || this.config.gmailClientId || '',
+          gmailClientSecret: (data as any).gmail_client_secret || this.config.gmailClientSecret || '',
+          gmailRefreshToken: (data as any).gmail_refresh_token || this.config.gmailRefreshToken || '',
           ...((data as any).app_url ? { appUrl: (data as any).app_url.replace(/\/$/, '') } : {}),
         })
         this.isLoaded = true
-        console.log(`[SmtpConfigStore] 📧 Configuración cargada desde BD → Emisor: ${(data as any).smtp_user}`)
+        console.log(`[SmtpConfigStore] 📧 Configuración cargada desde BD → Proveedor: ${(data as any).email_provider || 'gmail_api'} | Emisor: ${(data as any).smtp_user}`)
       }
     } catch (err) {
       console.warn('[SmtpConfigStore] Advertencia al sincronizar con BD:', err)
@@ -121,6 +134,42 @@ class SmtpConfigStore {
     this.config = { ...this.config, ...partial }
     this.isLoaded = true
     console.log(`[SmtpConfigStore] ✅ Configuración actualizada → Emisor: ${this.config.user} | Host: ${this.config.host}:${this.config.port}`)
+  }
+
+  private templateStyles: Record<string, {
+    headerGradient?: string
+    buttonColor?: string
+    buttonRadius?: string
+    showGeometric?: boolean
+  }> = {}
+
+  setTemplateStyle(slug: string, style: {
+    headerGradient?: string
+    buttonColor?: string
+    buttonRadius?: string
+    showGeometric?: boolean
+  }): void {
+    this.templateStyles[slug] = { ...this.templateStyles[slug], ...style }
+  }
+
+  getTemplateStyle(slug: string): {
+    headerGradient: string
+    buttonColor: string
+    buttonRadius: string
+    showGeometric: boolean
+  } {
+    const s = this.templateStyles[slug]
+    return {
+      headerGradient: s?.headerGradient || 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)',
+      buttonColor: s?.buttonColor || '#2563eb',
+      buttonRadius: s?.buttonRadius || '12px',
+      showGeometric: s?.showGeometric ?? true,
+    }
+  }
+
+  /** Invalida la bandera de carga para forzar recarga de base de datos */
+  invalidate(): void {
+    this.isLoaded = false
   }
 
   /** ¿Tiene credenciales SMTP reales configuradas? */
