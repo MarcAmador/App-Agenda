@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { WifiOff } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { BottomNav } from './BottomNav'
 import { FloatingFocusTimer } from '@/components/tasks/FloatingFocusTimer'
 import { FocusModeModal } from '@/components/tasks/FocusModeModal'
 import { TaskFormModal } from '@/components/tasks/TaskFormModal'
@@ -83,11 +84,14 @@ export function AppLayout({ children, pageTitle }: AppLayoutProps) {
         )}
 
         <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto px-4 lg:px-6 py-6 max-w-7xl">
+          <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 pb-24 lg:pb-6 max-w-7xl">
             {children}
           </div>
         </main>
       </div>
+
+      {/* Navegación Móvil Inferior */}
+      <BottomNav onOpenNewTask={() => setGlobalTaskModalOpen(true)} />
 
       {/* Cronómetro Flotante Superpuesto en Toda la Aplicación */}
       <FloatingFocusTimer />
