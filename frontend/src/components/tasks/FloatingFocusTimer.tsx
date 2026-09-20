@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Play, Pause, Check, Maximize2, X, Target, Flame, Tv } from 'lucide-react'
 import { useFocusTimer } from '@/context/FocusTimerContext'
@@ -37,6 +37,30 @@ export function FloatingFocusTimer() {
       setPipContainer(container)
       return () => setPipContainer(null)
     })
+  }
+
+  // Cerrar ventana PiP automáticamente si la tarea ya no está activa o el widget se oculta
+  useEffect(() => {
+    if ((!activeTask || !isWidgetVisible) && isPipActive) {
+      closePip()
+      setPipContainer(null)
+    }
+  }, [activeTask, isWidgetVisible, isPipActive, closePip])
+
+  const handleCompleteTask = () => {
+    if (isPipActive) {
+      closePip()
+      setPipContainer(null)
+    }
+    completeCurrentTask()
+  }
+
+  const handleDismissWidget = () => {
+    if (isPipActive) {
+      closePip()
+      setPipContainer(null)
+    }
+    dismissWidget()
   }
 
   if (!activeTask || !isWidgetVisible) {
@@ -185,7 +209,7 @@ export function FloatingFocusTimer() {
           {/* Marcar Tarea como Completada */}
           <button
             type="button"
-            onClick={completeCurrentTask}
+            onClick={handleCompleteTask}
             className="btn btn-ghost btn-circle btn-xs text-success hover:bg-success/15 transition-colors"
             title="Marcar tarea como completada"
           >
@@ -225,7 +249,7 @@ export function FloatingFocusTimer() {
           {/* Quitar / Cerrar widget flotante */}
           <button
             type="button"
-            onClick={dismissWidget}
+            onClick={handleDismissWidget}
             className="btn btn-ghost btn-circle btn-xs text-base-content/40 hover:text-error hover:bg-error/10 transition-colors"
             title="Quitar cronómetro flotante"
           >
@@ -269,7 +293,7 @@ export function FloatingFocusTimer() {
 
             <button
               type="button"
-              onClick={completeCurrentTask}
+              onClick={handleCompleteTask}
               className="btn btn-success btn-xs rounded-lg gap-1 font-semibold text-xs text-white"
             >
               <Check className="w-3 h-3" />

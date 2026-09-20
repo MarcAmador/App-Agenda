@@ -42,6 +42,10 @@ export interface EmailTemplate {
   footer_text?: string
   available_variables: string[]
   is_active: boolean
+  theme_gradient?: string
+  theme_pattern?: string
+  button_color?: string
+  button_shape?: string
   updated_at?: string
 }
 

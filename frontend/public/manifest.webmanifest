@@ -1,5 +1,6 @@
 {
-  "name": "AgendaPro — Gestión Docente Inteligente",
+  "id": "/",
+  "name": "AgendaPro",
   "short_name": "AgendaPro",
   "description": "Plataforma integral de gestión de agenda, tareas académicas, modo enfoque y seguimiento para docentes y coordinadores.",
   "start_url": "/",

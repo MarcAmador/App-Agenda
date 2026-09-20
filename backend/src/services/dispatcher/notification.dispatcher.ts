@@ -303,6 +303,11 @@ export class NotificationDispatcher {
             taskDescription: task.description,
             dueDate: task.due_date,
             dueTime: task.due_time,
+            startTime: task.start_time || task.due_time,
+            endTime: task.end_time,
+            participants: task.participants || [],
+            materials: task.materials || [],
+            checklist: task.checklist || [],
             priority: task.priority,
             scopePeriod: task.scope_period,
             userName: (userData.user_metadata?.full_name as string) ?? userData.email?.split('@')[0] ?? 'Coordinador',
@@ -454,6 +459,36 @@ export class NotificationDispatcher {
           (user.user_metadata?.name as string) ??
           user.email.split('@')[0]
 
+        const todayCount = tasksToday.length
+        const overdueCount = overdueTasks.length
+        const urgentCount = urgentTasks.length
+
+        // Redacción impecable en español (sin "0 actividades incluyendo 1 vencida")
+        let summaryIntro = ''
+        if (todayCount === 1) {
+          summaryIntro = `¡Buenos días, ${userName}! Para hoy tienes <strong>1 actividad docente programada</strong>`
+        } else if (todayCount > 1) {
+          summaryIntro = `¡Buenos días, ${userName}! Para hoy tienes <strong>${todayCount} actividades docentes programadas</strong>`
+        } else {
+          summaryIntro = `¡Buenos días, ${userName}! Para hoy no tienes actividades nuevas con fecha límite`
+        }
+
+        if (urgentCount === 1) {
+          summaryIntro += `, incluyendo <strong>1 tarea crítica urgente (Q1)</strong>.`
+        } else if (urgentCount > 1) {
+          summaryIntro += `, incluyendo <strong>${urgentCount} tareas críticas urgentes (Q1)</strong>.`
+        } else {
+          summaryIntro += `.`
+        }
+
+        if (overdueCount > 0) {
+          const overdueLabel =
+            overdueCount === 1
+              ? '1 actividad pendiente de entrega anterior'
+              : `${overdueCount} actividades pendientes de entregas anteriores`
+          summaryIntro += ` Asimismo, cuentas con <strong>${overdueLabel}</strong> que requieren tu seguimiento oportuno.`
+        }
+
         // Construir listado HTML de tareas para inyectar en el correo
         let taskListHtml = ''
         if (tasksToday.length > 0) {
@@ -473,10 +508,10 @@ export class NotificationDispatcher {
           taskListHtml += `
             <div style="margin: 16px 0; padding: 14px; background-color: #fef2f2; border-radius: 12px; border: 1px solid #fecaca;">
               <h4 style="margin: 0 0 8px 0; color: #991b1b; font-size: 13px; font-weight: 700; text-transform: uppercase;">
-                ⚠️ Actividades atrasadas que requieren atención (${overdueTasks.length}):
+                ⚠️ Actividades de plazos anteriores que requieren seguimiento (${overdueTasks.length}):
               </h4>
               <ul style="margin: 0; padding-left: 18px; font-size: 13.5px; color: #7f1d1d; line-height: 1.6;">
-                ${overdueTasks.slice(0, 5).map((t) => `<li><strong>${t.title}</strong> <span style="color: #b91c1c;">(venció el ${t.due_date})</span></li>`).join('')}
+                ${overdueTasks.slice(0, 5).map((t) => `<li><strong>${t.title}</strong> <span style="color: #b91c1c;">(fecha límite original: ${t.due_date})</span></li>`).join('')}
               </ul>
             </div>
           `
@@ -485,8 +520,10 @@ export class NotificationDispatcher {
         try {
           await AdminService.sendTestTemplateEmail('resumen_diario', user.email, {
             name: userName,
-            tasks_today_count: String(tasksToday.length),
-            urgent_tasks_count: String(urgentTasks.length),
+            summary_intro: summaryIntro,
+            tasks_today_count: String(todayCount),
+            urgent_tasks_count: String(urgentCount),
+            overdue_tasks_count: String(overdueCount),
             task_list_html: taskListHtml,
           })
           sent++

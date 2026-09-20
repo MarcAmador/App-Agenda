@@ -43,27 +43,44 @@ export function usePWAInstall() {
   }, [])
 
   const promptInstall = async () => {
-    if (!deferredPrompt) {
-      toast('Para instalar AgendaPro, usa la opción "Instalar aplicación" o "Agregar a pantalla de inicio" desde el menú de tu navegador.', {
-        icon: 'ℹ️',
-        duration: 4000,
-      })
-      return
+    if (deferredPrompt) {
+      try {
+        await deferredPrompt.prompt()
+        const choiceResult = await deferredPrompt.userChoice
+        if (choiceResult.outcome === 'accepted') {
+          setDeferredPrompt(null)
+        }
+        return
+      } catch (err) {
+        console.error('[PWA] Error durante prompt de instalación:', err)
+      }
     }
 
-    try {
-      await deferredPrompt.prompt()
-      const choiceResult = await deferredPrompt.userChoice
-      if (choiceResult.outcome === 'accepted') {
-        setDeferredPrompt(null)
-      }
-    } catch (err) {
-      console.error('[PWA] Error durante prompt de instalación:', err)
+    // Guía contextual si el prompt nativo aún no está listo o en iOS Safari
+    const ua = navigator.userAgent.toLowerCase()
+    const isIOS = /iphone|ipad|ipod/.test(ua)
+    const isAndroid = /android/.test(ua)
+
+    if (isIOS) {
+      toast('En iPhone: Toca el botón Compartir (icono de caja con flecha arriba) y selecciona "Agregar a pantalla de inicio".', {
+        icon: '📲',
+        duration: 6000,
+      })
+    } else if (isAndroid) {
+      toast('En Android: Toca los 3 puntos (⋮) del navegador y selecciona "Instalar aplicación" o "Agregar a pantalla principal".', {
+        icon: '📱',
+        duration: 5000,
+      })
+    } else {
+      toast('En tu navegador: Haz clic en el icono de instalación en la barra de direcciones o en el menú de opciones.', {
+        icon: '💻',
+        duration: 4500,
+      })
     }
   }
 
   return {
-    canInstall: !isInstalled && !!deferredPrompt,
+    canInstall: !isInstalled,
     isInstalled,
     promptInstall,
   }

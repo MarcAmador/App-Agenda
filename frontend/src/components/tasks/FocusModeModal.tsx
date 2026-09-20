@@ -21,6 +21,8 @@ import {
   Flame,
   AlertTriangle,
   X,
+  Users,
+  Package,
 } from 'lucide-react'
 import type { Task, TaskStatus, UpdateTaskInput } from '@/types/database.types'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
@@ -101,6 +103,7 @@ export function FocusModeModal({
     .sort((a, b) => b.score - a.score)
 
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [selectedDuration, setSelectedDuration] = useState<number>(25)
   const focusTimer = useFocusTimer()
 
   // Sincronizar índice con la tarea activa del temporizador si ya está en ejecución
@@ -306,9 +309,10 @@ export function FocusModeModal({
                   <div className="flex items-center gap-1.5 font-medium bg-base-200/60 px-2.5 py-1 rounded-lg">
                     <Calendar className="w-3.5 h-3.5 text-primary" />
                     <span>{currentCandidate.due_date}</span>
-                    {currentCandidate.due_time && (
-                      <span className="text-base-content/40">
-                        a las {currentCandidate.due_time.substring(0, 5)}
+                    {(currentCandidate.start_time || currentCandidate.due_time) && (
+                      <span className="text-base-content/60">
+                        ({currentCandidate.start_time || currentCandidate.due_time}
+                        {currentCandidate.end_time ? ` - ${currentCandidate.end_time}` : ''})
                       </span>
                     )}
                   </div>
@@ -319,6 +323,34 @@ export function FocusModeModal({
                   </span>
                 )}
               </div>
+
+              {/* Participantes Involucrados */}
+              {currentCandidate.participants && currentCandidate.participants.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap text-xs pt-1">
+                  <span className="font-bold text-base-content/60 text-[11px] flex items-center gap-1">
+                    <Users className="w-3 h-3 text-primary" /> Involucrados:
+                  </span>
+                  {currentCandidate.participants.map((p, i) => (
+                    <span key={i} className="badge badge-xs badge-outline border-primary/30 text-primary">
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Materiales y Recursos Requeridos */}
+              {currentCandidate.materials && currentCandidate.materials.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="font-bold text-base-content/60 text-[11px] flex items-center gap-1">
+                    <Package className="w-3 h-3 text-amber-500" /> Materiales:
+                  </span>
+                  {currentCandidate.materials.map((m, i) => (
+                    <span key={i} className="badge badge-xs badge-outline border-amber-500/30 text-amber-700 dark:text-amber-300">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* ── Subtareas / Checklist Interactivo (Joya 1) ─────── */}
               {currentCandidate.checklist && currentCandidate.checklist.length > 0 && (
@@ -429,6 +461,27 @@ export function FocusModeModal({
                           ? '⏱️ Bloque de concentración activo. Permanece en segundo plano si cierras.'
                           : 'Inicia el cronómetro para superponerlo en toda la pantalla.'}
                       </p>
+
+                      {/* Chips de duración preestablecida */}
+                      {!isRunning && !isCandidateFocused && (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                          <span className="text-[10px] text-base-content/50 font-bold uppercase">Duración:</span>
+                          {[15, 25, 45, 60].map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setSelectedDuration(m)}
+                              className={`badge badge-sm cursor-pointer transition-all ${
+                                selectedDuration === m
+                                  ? 'badge-primary text-white font-bold shadow-2xs'
+                                  : 'badge-ghost text-base-content/70 hover:badge-outline'
+                              }`}
+                            >
+                              {m} min
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -443,7 +496,7 @@ export function FocusModeModal({
                             focusTimer.resumeTimer()
                           }
                         } else {
-                          focusTimer.startFocus(currentCandidate, 25)
+                          focusTimer.startFocus(currentCandidate, selectedDuration)
                         }
                       }}
                       className={`btn btn-sm rounded-xl gap-1.5 text-xs font-bold ${

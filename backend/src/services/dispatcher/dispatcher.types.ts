@@ -7,6 +7,11 @@ export interface NotificationPayload {
   taskDescription?: string | null
   dueDate?: string | null
   dueTime?: string | null
+  startTime?: string | null
+  endTime?: string | null
+  participants?: string[]
+  materials?: string[]
+  checklist?: Array<{ id: string; text: string; completed: boolean }>
   priority?: string
   scopePeriod?: string
   userName: string

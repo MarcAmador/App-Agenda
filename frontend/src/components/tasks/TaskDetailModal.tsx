@@ -19,6 +19,8 @@ import {
   ListChecks,
   Check,
   MessageSquare,
+  Users,
+  Package,
 } from 'lucide-react'
 import type { Task, TaskStatus, TaskSubtask } from '@/types/database.types'
 import { PriorityBadge } from '@/components/common/PriorityBadge'
@@ -197,10 +199,13 @@ export function TaskDetailModal({
             <span className="capitalize">{formatDate(task.due_date)}</span>
           </div>
 
-          {task.due_time && (
+          {(task.start_time || task.due_time) && (
             <div className="flex items-center gap-1.5 font-medium">
               <Clock className="w-3.5 h-3.5 text-info" />
-              <span>{formatTime(task.due_time)}</span>
+              <span>
+                {formatTime(task.start_time || task.due_time)}
+                {task.end_time ? ` a ${formatTime(task.end_time)}` : ''}
+              </span>
             </div>
           )}
 
@@ -365,6 +370,48 @@ export function TaskDetailModal({
                   </div>
                   <ExternalLink className="w-3.5 h-3.5 text-base-content/40 group-hover:text-primary shrink-0 transition-colors" />
                 </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Participantes e Involucrados */}
+        {task.participants && task.participants.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-base-content/50 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-primary" />
+              Participantes e Involucrados ({task.participants.length})
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {task.participants.map((p, idx) => (
+                <span
+                  key={idx}
+                  className="badge badge-sm badge-outline gap-1.5 text-xs py-1.5 px-3 bg-primary/5 border-primary/20 text-primary font-medium"
+                >
+                  <Users className="w-3 h-3 opacity-70" />
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Materiales y Recursos Necesarios */}
+        {task.materials && task.materials.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-base-content/50 flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-amber-500" />
+              Materiales y Recursos Requeridos ({task.materials.length})
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {task.materials.map((m, idx) => (
+                <span
+                  key={idx}
+                  className="badge badge-sm badge-outline gap-1.5 text-xs py-1.5 px-3 bg-amber-500/5 border-amber-500/20 text-amber-700 dark:text-amber-300 font-medium"
+                >
+                  <Package className="w-3 h-3 opacity-70" />
+                  {m}
+                </span>
               ))}
             </div>
           </div>

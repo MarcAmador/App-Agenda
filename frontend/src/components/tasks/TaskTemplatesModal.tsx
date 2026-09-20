@@ -198,6 +198,22 @@ export function TaskTemplatesModal({ visible, onHide, onSelectTemplate }: TaskTe
                   </ul>
                 </div>
               )}
+
+              {/* Materiales y Participantes sugeridos */}
+              {(tpl.materials?.length || tpl.participants?.length) ? (
+                <div className="pt-2 border-t border-base-200/50 flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                  {tpl.materials && tpl.materials.length > 0 && (
+                    <span className="badge badge-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 py-1">
+                      📦 {tpl.materials.slice(0, 2).join(', ')}{tpl.materials.length > 2 ? ` +${tpl.materials.length - 2}` : ''}
+                    </span>
+                  )}
+                  {tpl.participants && tpl.participants.length > 0 && (
+                    <span className="badge badge-xs bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20 py-1">
+                      👥 {tpl.participants.join(', ')}
+                    </span>
+                  )}
+                </div>
+              ) : null}
             </div>
           ))
         )}

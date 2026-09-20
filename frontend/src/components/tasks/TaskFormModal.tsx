@@ -21,11 +21,15 @@ import {
   Circle,
   Bookmark,
   Sparkles,
+  Users,
+  Package,
+  EyeOff,
 } from 'lucide-react'
 import { TaskTemplatesModal } from './TaskTemplatesModal'
 import { saveCustomTemplate, type AcademicTaskTemplate } from '@/utils/taskTemplates'
 import { breakdownTaskWithAI } from '@/utils/taskBreakdownAI'
 import { soundEngine } from '@/utils/audioEffects'
+import { useUiPreferences } from '@/context/UiPreferencesContext'
 import toast from 'react-hot-toast'
 import type {
   Task,
@@ -83,6 +87,8 @@ type FormValues = {
   scope_period: TaskScope
   due_date: Date | null
   due_time: Date | null
+  start_time: Date | null
+  end_time: Date | null
   location: string
   category: string
   tags: string[]
@@ -92,10 +98,24 @@ type FormValues = {
 
 export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, isSubmitting }: TaskFormModalProps) {
   const isEditing = !!task
+  const { preferences } = useUiPreferences()
+
+  // Control para mostrar u ocultar opciones avanzadas en el modal
+  const [hideTemplatesManual, setHideTemplatesManual] = useState(false)
+  const [hideAiManual, setHideAiManual] = useState(false)
+
+  const showTemplates = preferences.showNewTaskTemplates && !hideTemplatesManual
+  const showAI = preferences.showNewTaskAI && !hideAiManual
 
   // Estado para subtareas (Checklist)
   const [subtasks, setSubtasks] = useState<TaskSubtask[]>([])
   const [newSubtaskText, setNewSubtaskText] = useState('')
+
+  // Estado para Participantes y Materiales
+  const [participants, setParticipants] = useState<string[]>([])
+  const [newParticipant, setNewParticipant] = useState('')
+  const [materials, setMaterials] = useState<string[]>([])
+  const [newMaterial, setNewMaterial] = useState('')
 
   // Estado para enlaces a recursos (Drive, Meet, Classroom, etc.)
   const [links, setLinks] = useState<TaskLink[]>([])
@@ -113,6 +133,8 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       scope_period: 'semanal',
       due_date: null,
       due_time: null,
+      start_time: null,
+      end_time: null,
       location: '',
       category: '',
       tags: [],
@@ -130,12 +152,16 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
         scope_period: task.scope_period,
         due_date:     task.due_date ? new Date(task.due_date + 'T00:00:00') : null,
         due_time:     task.due_time ? new Date(`1970-01-01T${task.due_time}`) : null,
+        start_time:   task.start_time ? new Date(`1970-01-01T${task.start_time}`) : (task.due_time ? new Date(`1970-01-01T${task.due_time}`) : null),
+        end_time:     task.end_time ? new Date(`1970-01-01T${task.end_time}`) : null,
         location:     task.location ?? '',
         category:     task.category ?? '',
         tags:         task.tags ?? [],
       })
       setSubtasks(task.checklist || [])
       setLinks(task.links || [])
+      setParticipants(task.participants || [])
+      setMaterials(task.materials || [])
     } else {
       reset({
         title: '',
@@ -145,15 +171,21 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
         scope_period: initialValues?.scope_period ?? 'semanal',
         due_date: initialValues?.due_date ? new Date(initialValues.due_date + 'T00:00:00') : null,
         due_time: null,
+        start_time: null,
+        end_time: null,
         location: initialValues?.location ?? '',
         category: initialValues?.category ?? '',
         tags: initialValues?.tags ?? [],
       })
       setSubtasks(initialValues?.checklist || [])
       setLinks(initialValues?.links || [])
+      setParticipants(initialValues?.participants || [])
+      setMaterials(initialValues?.materials || [])
       setNewSubtaskText('')
       setNewLinkUrl('')
       setNewLinkTitle('')
+      setNewParticipant('')
+      setNewMaterial('')
     }
   }, [task, initialValues, reset, visible])
 
@@ -178,7 +210,13 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
         completed: false,
       }))
     )
-    toast.success(`Plantilla "${tpl.title}" cargada`, { icon: '✨' })
+    if (tpl.materials?.length) {
+      setMaterials(tpl.materials)
+    }
+    if (tpl.participants?.length) {
+      setParticipants(tpl.participants)
+    }
+    toast.success(`Plantilla "${tpl.title}" cargada con éxito`, { icon: '✨' })
   }
 
   const handleSaveAsTemplate = () => {
@@ -195,6 +233,8 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       priority: currentValues.priority,
       scope_period: currentValues.scope_period,
       tags: currentValues.tags || [],
+      materials: materials,
+      participants: participants,
       subtasks: subtasks.map((s) => ({ id: s.id, text: s.text, completed: false })),
     })
 
@@ -224,6 +264,9 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       }))
 
       setSubtasks((prev) => [...prev, ...newItems])
+      if (result.suggestedMaterials?.length) {
+        setMaterials((prev) => Array.from(new Set([...prev, ...result.suggestedMaterials])))
+      }
       if (!currentValues.category && result.suggestedCategory) {
         setValue('category', result.suggestedCategory)
       }
@@ -232,7 +275,7 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       }
       soundEngine.playSuccessChime()
       toast.success(
-        `✨ ¡${result.subtasks.length} pasos pedagógicos generados con IA! (~${result.estimatedTotalMinutes} min)`,
+        `✨ ¡${result.subtasks.length} pasos y materiales generados con IA! (~${result.estimatedTotalMinutes} min)`,
         { duration: 4000 }
       )
     } catch {
@@ -340,6 +383,14 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       formattedDate = `${y}-${m}-${d}`
     }
 
+    const effectiveStartTime = values.start_time || values.due_time
+    const formattedStartTime = effectiveStartTime
+      ? `${String(effectiveStartTime.getHours()).padStart(2, '0')}:${String(effectiveStartTime.getMinutes()).padStart(2, '0')}:00`
+      : null
+    const formattedEndTime = values.end_time
+      ? `${String(values.end_time.getHours()).padStart(2, '0')}:${String(values.end_time.getMinutes()).padStart(2, '0')}:00`
+      : null
+
     const payload: CreateTaskInput = {
       title:        values.title,
       description:  values.description || null,
@@ -347,12 +398,14 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       priority:     values.priority,
       scope_period: values.scope_period,
       due_date:     formattedDate,
-      due_time:     values.due_time
-        ? `${String(values.due_time.getHours()).padStart(2, '0')}:${String(values.due_time.getMinutes()).padStart(2, '0')}:00`
-        : null,
+      due_time:     formattedStartTime,
+      start_time:   formattedStartTime,
+      end_time:     formattedEndTime,
       location:     values.location || null,
       category:     values.category || null,
       tags:         values.tags,
+      participants: participants,
+      materials:    materials,
       is_shared:    false,
       shared_with:  [],
       checklist:    subtasks,
@@ -406,7 +459,7 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
       <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-5 pt-2">
 
         {/* Banner de Plantillas para Nuevas Tareas */}
-        {!isEditing && (
+        {!isEditing && showTemplates && (
           <div className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-primary/10 via-base-200 to-secondary/10 border border-primary/20 gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <Sparkles className="w-4 h-4 text-primary shrink-0" />
@@ -414,14 +467,24 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
                 ¿Deseas ahorrar tiempo con una rutina docente prediseñada?
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setTemplatesModalVisible(true)}
-              className="btn btn-primary btn-xs rounded-lg gap-1.5 shadow-xs shrink-0 font-semibold"
-            >
-              <Bookmark className="w-3 h-3" />
-              <span>Usar Plantilla</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTemplatesModalVisible(true)}
+                className="btn btn-primary btn-xs rounded-lg gap-1.5 shadow-xs font-semibold"
+              >
+                <Bookmark className="w-3 h-3" />
+                <span>Usar Plantilla</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHideTemplatesManual(true)}
+                className="btn btn-ghost btn-circle btn-xs text-base-content/40 hover:text-base-content"
+                title="Ocultar sugerencia de plantillas"
+              >
+                <EyeOff className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         )}
 
@@ -527,10 +590,10 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
           </div>
         </div>
 
-        {/* 4. Fila: Fecha + Hora */}
-        <div id="tour-modal-dates" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* 4. Fila: Fecha + Hora de Inicio + Hora Fin */}
+        <div id="tour-modal-dates" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="form-control gap-1.5">
-            <label className="label-text font-medium text-sm">Fecha límite</label>
+            <label className="label-text font-medium text-sm">Fecha</label>
             <Controller
               name="due_date"
               control={control}
@@ -538,7 +601,7 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
                 <Calendar
                   {...field}
                   dateFormat="dd/mm/yy"
-                  placeholder="Seleccionar fecha"
+                  placeholder="dd/mm/aaaa"
                   showButtonBar
                   className="p-inputtext-sm w-full"
                   inputClassName="w-full"
@@ -548,9 +611,31 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
             />
           </div>
           <div className="form-control gap-1.5">
-            <label className="label-text font-medium text-sm">Hora</label>
+            <label className="label-text font-medium text-sm">Hora de Inicio</label>
             <Controller
-              name="due_time"
+              name="start_time"
+              control={control}
+              render={({ field }) => (
+                <Calendar
+                  {...field}
+                  timeOnly
+                  hourFormat="12"
+                  placeholder="HH:MM"
+                  className="p-inputtext-sm w-full"
+                  inputClassName="w-full"
+                  showIcon
+                  icon="pi pi-clock"
+                />
+              )}
+            />
+          </div>
+          <div className="form-control gap-1.5">
+            <label className="label-text font-medium text-sm flex items-center justify-between">
+              <span>Hora Fin</span>
+              <span className="text-[10px] text-base-content/50 font-normal">Opcional</span>
+            </label>
+            <Controller
+              name="end_time"
               control={control}
               render={({ field }) => (
                 <Calendar
@@ -582,20 +667,32 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
 
             <div className="flex items-center gap-2">
               {/* Botón Desglosar con IA */}
-              <button
-                type="button"
-                disabled={isBreakingDown}
-                onClick={handleAIBreakdown}
-                className="btn btn-primary btn-xs rounded-lg gap-1.5 font-semibold shadow-2xs hover:shadow-xs"
-                title="Descomponer automáticamente esta tarea en pasos pedagógicos secuenciales con IA"
-              >
-                {isBreakingDown ? (
-                  <span className="loading loading-spinner loading-xs" />
-                ) : (
-                  <Sparkles className="w-3 h-3 text-primary-content" />
-                )}
-                <span>Desglosar con IA</span>
-              </button>
+              {showAI && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={isBreakingDown}
+                    onClick={handleAIBreakdown}
+                    className="btn btn-primary btn-xs rounded-lg gap-1.5 font-semibold shadow-2xs hover:shadow-xs"
+                    title="Descomponer automáticamente esta tarea en pasos y materiales sugeridos con IA"
+                  >
+                    {isBreakingDown ? (
+                      <span className="loading loading-spinner loading-xs" />
+                    ) : (
+                      <Sparkles className="w-3 h-3 text-primary-content" />
+                    )}
+                    <span>Desglosar con IA</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHideAiManual(true)}
+                    className="btn btn-ghost btn-circle btn-xs text-base-content/40 hover:text-base-content"
+                    title="Ocultar asistente de IA"
+                  >
+                    <EyeOff className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
 
               {subtasks.length > 0 && (
                 <span className="badge badge-primary badge-outline badge-xs font-semibold py-1">
@@ -828,9 +925,144 @@ export function TaskFormModal({ visible, task, initialValues, onHide, onSubmit, 
             />
             <span className="text-xs text-base-content/40">Presiona Enter para agregar cada etiqueta</span>
           </div>
+
+          {/* 8. Participantes y Materiales de la Actividad */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            {/* Participantes */}
+            <div className="card bg-base-200/40 border border-base-300/60 p-3.5 rounded-2xl flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-base-content flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Participantes / Convocados</span>
+                </span>
+                <span className="text-[10px] text-base-content/50 font-medium">
+                  {participants.length} añadido(s)
+                </span>
+              </div>
+
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={newParticipant}
+                  onChange={(e) => setNewParticipant(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const val = newParticipant.trim()
+                      if (val && !participants.includes(val)) {
+                        setParticipants((p) => [...p, val])
+                        setNewParticipant('')
+                      }
+                    }
+                  }}
+                  placeholder="Ej: Prof. López, 5to Primaria..."
+                  className="input input-bordered input-xs rounded-lg text-xs flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = newParticipant.trim()
+                    if (val && !participants.includes(val)) {
+                      setParticipants((p) => [...p, val])
+                      setNewParticipant('')
+                    }
+                  }}
+                  className="btn btn-primary btn-xs rounded-lg px-2 font-semibold"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+
+              {participants.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto">
+                  {participants.map((p, idx) => (
+                    <span
+                      key={idx}
+                      className="badge badge-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20 gap-1 text-[11px]"
+                    >
+                      <span>{p}</span>
+                      <button
+                        type="button"
+                        onClick={() => setParticipants((prev) => prev.filter((_, i) => i !== idx))}
+                        className="hover:text-error ml-0.5 font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Materiales */}
+            <div className="card bg-base-200/40 border border-base-300/60 p-3.5 rounded-2xl flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-base-content flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Materiales y Recursos</span>
+                </span>
+                <span className="text-[10px] text-base-content/50 font-medium">
+                  {materials.length} añadido(s)
+                </span>
+              </div>
+
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={newMaterial}
+                  onChange={(e) => setNewMaterial(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const val = newMaterial.trim()
+                      if (val && !materials.includes(val)) {
+                        setMaterials((m) => [...m, val])
+                        setNewMaterial('')
+                      }
+                    }
+                  }}
+                  placeholder="Ej: Proyector, Hojas impresas..."
+                  className="input input-bordered input-xs rounded-lg text-xs flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = newMaterial.trim()
+                    if (val && !materials.includes(val)) {
+                      setMaterials((m) => [...m, val])
+                      setNewMaterial('')
+                    }
+                  }}
+                  className="btn btn-warning btn-xs rounded-lg px-2 font-semibold"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+
+              {materials.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto">
+                  {materials.map((m, idx) => (
+                    <span
+                      key={idx}
+                      className="badge badge-sm bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20 gap-1 text-[11px]"
+                    >
+                      <span>{m}</span>
+                      <button
+                        type="button"
+                        onClick={() => setMaterials((prev) => prev.filter((_, i) => i !== idx))}
+                        className="hover:text-error ml-0.5 font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* 8. Acciones */}
+        {/* 9. Acciones */}
         <div id="tour-modal-actions" className="flex items-center justify-between gap-3 pt-3 border-t border-base-200 flex-wrap">
           <div>
             {!isEditing && (

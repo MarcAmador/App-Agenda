@@ -34,6 +34,10 @@ export interface EmailTemplateItem {
   footer_text?: string
   available_variables: string[]
   is_active: boolean
+  theme_gradient?: string
+  theme_pattern?: string
+  button_color?: string
+  button_shape?: string
   updated_at?: string
 }
 
@@ -142,11 +146,11 @@ const DEFAULT_TEMPLATES: EmailTemplateItem[] = [
     description: 'Despacho diario con las prioridades académicas de la jornada.',
     subject: '☀️ Tus prioridades académicas de hoy, {{name}}',
     header_title: 'Resumen Matutino de Actividades',
-    body_html: '<p>¡Buenos días, {{name}}! Para hoy tienes <strong>{{tasks_today_count}}</strong> actividades programadas, incluyendo <strong>{{urgent_tasks_count}}</strong> tareas urgentes en el Cuadrante 1.</p>',
+    body_html: '<p>{{summary_intro}}</p>{{task_list_html}}',
     button_text: 'Ver mi Agenda de Hoy',
     button_url: '{{action_url}}',
     footer_text: 'AgendaPro Diario • Despachado a las 07:00 AM',
-    available_variables: ['name', 'tasks_today_count', 'urgent_tasks_count', 'action_url', 'app_name'],
+    available_variables: ['name', 'summary_intro', 'tasks_today_count', 'urgent_tasks_count', 'overdue_tasks_count', 'task_list_html', 'action_url', 'app_name'],
     is_active: true,
   },
   {
@@ -745,12 +749,17 @@ export class AdminService {
       bodyHtml += vars.task_list_html
     }
 
-    // Construcción de HTML premium con DaisyUI visual palette
+    // Construcción de HTML premium con DaisyUI visual palette y elementos geométricos
     const logoUrl = getEmailLogoUrl(smtpStore.get().appUrl)
     const rawAppName = String(memorySettings.app_name || '').trim()
     const safeAppName = (!rawAppName || rawAppName.toLowerCase().includes('nivora') || rawAppName.toLowerCase().includes('académico') || rawAppName.toLowerCase().includes('academico'))
       ? 'AgendaPro'
       : rawAppName
+
+    const headerGradient = template.theme_gradient || 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)'
+    const buttonColor = template.button_color || '#2563eb'
+    const buttonRadius = template.button_shape === 'pill' ? '9999px' : template.button_shape === 'square' ? '4px' : '12px'
+    const showGeometric = template.theme_pattern !== 'none'
 
     const fullHtml = `
 <!DOCTYPE html>
@@ -765,10 +774,20 @@ export class AdminService {
     <tr>
       <td align="center">
         <table width="100%" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-          <!-- Encabezado con Gradiente -->
-          <!-- Encabezado con Gradiente y Logo Real -->
+          <!-- Encabezado con Gradiente y Formas Geométricas -->
           <tr>
-            <td style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding: 32px 28px; text-align: left;">
+            <td style="background: ${headerGradient}; padding: 32px 28px; text-align: left; position: relative; overflow: hidden;">
+              ${
+                showGeometric
+                  ? `<!-- Formas Geométricas Abstractas -->
+              <table cellpadding="0" cellspacing="0" border="0" style="position: absolute; right: -20px; top: -20px; opacity: 0.15; pointer-events: none;">
+                <tr><td><div style="width: 140px; height: 140px; border-radius: 50%; background: #ffffff;"></div></td></tr>
+              </table>
+              <table cellpadding="0" cellspacing="0" border="0" style="position: absolute; right: 80px; bottom: -30px; opacity: 0.12; pointer-events: none;">
+                <tr><td><div style="width: 80px; height: 80px; border-radius: 18px; background: #ffffff; transform: rotate(25deg);"></div></td></tr>
+              </table>`
+                  : ''
+              }
               <img src="${logoUrl}" alt="AgendaPro" width="48" height="48" style="display: block; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid rgba(255,255,255,0.3); background-color: #ffffff;" />
               <span style="display: inline-block; background-color: rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 9999px; margin-bottom: 12px;">
                 ${safeAppName}
@@ -784,7 +803,7 @@ export class AdminService {
               ${bodyHtml}
               
               <div style="margin: 28px 0; text-align: center;">
-                <a href="${buttonUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 28px; border-radius: 10px; box-shadow: 0 2px 8px rgba(37,99,235,0.25);">
+                <a href="${buttonUrl}" style="display: inline-block; background: ${buttonColor}; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 13px 32px; border-radius: ${buttonRadius}; box-shadow: 0 4px 14px rgba(0,0,0,0.15);">
                   ${buttonText} →
                 </a>
               </div>

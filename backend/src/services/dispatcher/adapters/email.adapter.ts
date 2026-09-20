@@ -176,12 +176,15 @@ AgendaPro · Alerta de Productividad Académica
 --------------------------------------------------
 Hola ${payload.userName},
 
-${payload.isTest ? 'Este es un mensaje de prueba para verificar tu canal de correo.' : 'Tienes una actividad próxima a vencer en tu agenda:'}
+${payload.isTest ? 'Este es un mensaje de prueba para verificar tu canal de correo.' : 'Tienes una actividad programada en tu agenda académica:'}
 
 Título: ${payload.taskTitle}
 ${payload.taskDescription ? `Detalles: ${payload.taskDescription}` : ''}
-Fecha Límite: ${payload.dueDate ?? 'Hoy'} ${payload.dueTime ? `a las ${payload.dueTime.substring(0, 5)}` : ''}
+Fecha: ${payload.dueDate ?? 'Hoy'} ${(payload.startTime || payload.dueTime) ? `a las ${(payload.startTime || payload.dueTime)?.substring(0, 5)}${payload.endTime ? ` - ${payload.endTime.substring(0, 5)}` : ''}` : ''}
 Prioridad: ${payload.priority ?? 'General'}
+${payload.participants && payload.participants.length > 0 ? `Participantes: ${payload.participants.join(', ')}` : ''}
+${payload.materials && payload.materials.length > 0 ? `Materiales necesarios: ${payload.materials.join(', ')}` : ''}
+${payload.checklist && payload.checklist.length > 0 ? `Subtareas: ${payload.checklist.map(s => `${s.completed ? '[x]' : '[ ]'} ${s.text}`).join(' | ')}` : ''}
 
 Gestiona tus actividades ingresando a tu portal de AgendaPro:
 ${appUrl}/tareas
@@ -269,17 +272,35 @@ ${appUrl}/tareas
                       ${payload.taskDescription}
                     </p>` : '<div style="height: 12px;"></div>'}
 
-                    <!-- Metadatos -->
+                    <!-- Metadatos de la Actividad -->
                     <table width="100%" border="0" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e2e8f0; padding-top: 14px;">
                       <tr>
-                        <td style="font-size: 12px; color: #64748b; padding-bottom: 6px;">
-                          📅 <strong>Fecha de Entrega:</strong> ${payload.dueDate ?? 'Hoy'}
+                        <td style="font-size: 12.5px; color: #475569; padding-bottom: 8px;">
+                          📅 <strong>Fecha:</strong> ${payload.dueDate ?? 'Hoy'}
+                          ${(payload.startTime || payload.dueTime) ? ` &nbsp;•&nbsp; ⏰ <strong>Horario:</strong> ${(payload.startTime || payload.dueTime)?.substring(0, 5)}${payload.endTime ? ` a ${payload.endTime.substring(0, 5)}` : ''}` : ''}
                         </td>
                       </tr>
-                      ${payload.dueTime ? `
+                      ${payload.participants && payload.participants.length > 0 ? `
                       <tr>
-                        <td style="font-size: 12px; color: #64748b;">
-                          ⏰ <strong>Hora Límite:</strong> ${payload.dueTime.substring(0, 5)}
+                        <td style="font-size: 12px; color: #475569; padding-bottom: 8px;">
+                          👥 <strong>Participantes:</strong> ${payload.participants.join(', ')}
+                        </td>
+                      </tr>` : ''}
+                      ${payload.materials && payload.materials.length > 0 ? `
+                      <tr>
+                        <td style="font-size: 12px; color: #475569; padding-bottom: 8px;">
+                          📦 <strong>Materiales necesarios:</strong> ${payload.materials.join(', ')}
+                        </td>
+                      </tr>` : ''}
+                      ${payload.checklist && payload.checklist.length > 0 ? `
+                      <tr>
+                        <td style="padding-top: 6px;">
+                          <div style="font-size: 11.5px; font-weight: 700; color: #0284c7; margin-bottom: 4px; text-transform: uppercase;">
+                            📋 Pasos / Checklist (${payload.checklist.filter(s => s.completed).length} de ${payload.checklist.length} completados):
+                          </div>
+                          <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #64748b; line-height: 1.5;">
+                            ${payload.checklist.map(s => `<li><span style="${s.completed ? 'text-decoration: line-through; color: #94a3b8;' : 'color: #334155;'}">${s.completed ? '✅' : '⚪'} ${s.text}</span></li>`).join('')}
+                          </ul>
                         </td>
                       </tr>` : ''}
                     </table>

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, LayoutList, Calendar, Grid2x2, X, FileText } from 'lucide-react'
 import type { Task, CreateTaskInput, TaskPriority } from '@/types/database.types'
 import { TaskFilters } from '@/services/tasks.service'
+import { useUiPreferences } from '@/context/UiPreferencesContext'
 
 import {
   useTasks,
@@ -158,6 +159,25 @@ export function TasksView({
     perdida:    baseTasksForCounts.filter((t) => t.status === 'perdida' || isOverdue(t)).length,
   }
 
+  const { preferences } = useUiPreferences()
+
+  const showStats =
+    (viewMode === 'tabla' && preferences.showTasksKpis) ||
+    (viewMode === 'calendario' && preferences.showCalendarKpis) ||
+    (viewMode === 'matriz' && preferences.showMatrixKpis)
+
+  const showQuickNav =
+    (viewMode === 'tabla' && preferences.showTasksQuickNav) ||
+    (viewMode === 'calendario' && preferences.showCalendarQuickNav) ||
+    (viewMode === 'matriz' && preferences.showMatrixQuickNav)
+
+  const displayedTasks = useMemo(() => {
+    if (preferences.autoArchiveCompleted && statusFilter !== 'completada') {
+      return tasks.filter((t) => t.status !== 'completada' && t.status !== 'archivada')
+    }
+    return tasks
+  }, [tasks, preferences.autoArchiveCompleted, statusFilter])
+
   const hasActiveFilters = quickFilter !== 'todos' || statusFilter !== undefined || Object.keys(advancedFilters).length > 0
 
   const handleOpenCreate = () => {
@@ -216,31 +236,33 @@ export function TasksView({
 
         <div className="flex items-center gap-2.5">
           {/* Selector de vista interactivo */}
-          <div id="tour-view-modes" className="flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
-            {([
-              { mode: 'tabla',      icon: LayoutList, title: 'Vista Tabla' },
-              { mode: 'calendario', icon: Calendar,   title: 'Vista Calendario' },
-              { mode: 'matriz',     icon: Grid2x2,    title: 'Matriz de Eisenhower' },
-            ] as const).map(({ mode, icon: Icon, title }) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => handleViewChange(mode)}
-                title={title}
-                className={[
-                  'btn btn-xs rounded-lg px-2.5 h-8 gap-1.5 transition-all',
-                  viewMode === mode
-                    ? 'btn-primary shadow-xs'
-                    : 'btn-ghost text-base-content/70 hover:text-base-content',
-                ].join(' ')}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline capitalize text-xs">
-                  {mode === 'matriz' ? 'Matriz' : mode}
-                </span>
-              </button>
-            ))}
-          </div>
+          {showQuickNav && (
+            <div id="tour-view-modes" className="flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
+              {([
+                { mode: 'tabla',      icon: LayoutList, title: 'Vista Tabla' },
+                { mode: 'calendario', icon: Calendar,   title: 'Vista Calendario' },
+                { mode: 'matriz',     icon: Grid2x2,    title: 'Matriz de Eisenhower' },
+              ] as const).map(({ mode, icon: Icon, title }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleViewChange(mode)}
+                  title={title}
+                  className={[
+                    'btn btn-xs rounded-lg px-2.5 h-8 gap-1.5 transition-all',
+                    viewMode === mode
+                      ? 'btn-primary shadow-xs'
+                      : 'btn-ghost text-base-content/70 hover:text-base-content',
+                  ].join(' ')}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline capitalize text-xs">
+                    {mode === 'matriz' ? 'Matriz' : mode}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Botón Exportar Informe Ejecutivo */}
           <button
@@ -267,46 +289,48 @@ export function TasksView({
       </div>
 
       {/* ── Stat Cards Clicables ───────────────────────────────────── */}
-      <div id="tour-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          label="Pendientes"
-          count={counts.pendiente}
-          colorClass="text-warning"
-          active={statusFilter === 'pendiente'}
-          onClick={() =>
-            setStatusFilter(statusFilter === 'pendiente' ? undefined : 'pendiente')
-          }
-        />
-        <StatCard
-          label="En curso"
-          count={counts.en_curso}
-          colorClass="text-info"
-          active={statusFilter === 'en_curso'}
-          onClick={() =>
-            setStatusFilter(statusFilter === 'en_curso' ? undefined : 'en_curso')
-          }
-        />
-        <StatCard
-          label="Completadas"
-          count={counts.completada}
-          colorClass="text-success"
-          active={statusFilter === 'completada'}
-          onClick={() =>
-            setStatusFilter(
-              statusFilter === 'completada' ? undefined : 'completada'
-            )
-          }
-        />
-        <StatCard
-          label="Vencidas"
-          count={counts.perdida}
-          colorClass="text-error"
-          active={statusFilter === 'perdida'}
-          onClick={() =>
-            setStatusFilter(statusFilter === 'perdida' ? undefined : 'perdida')
-          }
-        />
-      </div>
+      {showStats && (
+        <div id="tour-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard
+            label="Pendientes"
+            count={counts.pendiente}
+            colorClass="text-warning"
+            active={statusFilter === 'pendiente'}
+            onClick={() =>
+              setStatusFilter(statusFilter === 'pendiente' ? undefined : 'pendiente')
+            }
+          />
+          <StatCard
+            label="En curso"
+            count={counts.en_curso}
+            colorClass="text-info"
+            active={statusFilter === 'en_curso'}
+            onClick={() =>
+              setStatusFilter(statusFilter === 'en_curso' ? undefined : 'en_curso')
+            }
+          />
+          <StatCard
+            label="Completadas"
+            count={counts.completada}
+            colorClass="text-success"
+            active={statusFilter === 'completada'}
+            onClick={() =>
+              setStatusFilter(
+                statusFilter === 'completada' ? undefined : 'completada'
+              )
+            }
+          />
+          <StatCard
+            label="Vencidas"
+            count={counts.perdida}
+            colorClass="text-error"
+            active={statusFilter === 'perdida'}
+            onClick={() =>
+              setStatusFilter(statusFilter === 'perdida' ? undefined : 'perdida')
+            }
+          />
+        </div>
+      )}
 
       {/* ── Barra de Filtros Avanzados ────────────────────────────── */}
       <div id="tour-advanced-filters">
@@ -356,7 +380,7 @@ export function TasksView({
       {viewMode === 'tabla' && (
         <div id="tour-tasks-table" className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden rounded-2xl">
           <TaskDataTable
-            tasks={tasks}
+            tasks={displayedTasks}
             loading={isLoading}
             totalRecords={totalRecords}
             onEdit={handleOpenEdit}
@@ -371,7 +395,7 @@ export function TasksView({
       {viewMode === 'calendario' && (
         <div id="tour-calendar-view">
           <TaskCalendar
-            tasks={tasks}
+            tasks={displayedTasks}
             loading={isLoading}
             onEdit={handleOpenEdit}
             onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
@@ -383,7 +407,7 @@ export function TasksView({
       {viewMode === 'matriz' && (
         <div id="tour-matrix-view">
           <EisenhowerMatrix
-            tasks={tasks}
+            tasks={displayedTasks}
             loading={isLoading}
             onEdit={handleOpenEdit}
             onDelete={(id) => deleteTask.mutate(id)}

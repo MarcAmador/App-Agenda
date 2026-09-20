@@ -2,6 +2,8 @@ import React, { createContext, useContext, useCallback, useEffect, useRef } from
 import { useNavigate, useLocation } from 'react-router-dom'
 import { driver, Driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
+import { useUiPreferences } from '@/context/UiPreferencesContext'
+import toast from 'react-hot-toast'
 
 export interface TourStepDefinition {
   route: string
@@ -459,28 +461,31 @@ function cleanupDriverDOM() {
 /**
  * Espera de forma no bloqueante a que el elemento objetivo aparezca en el DOM
  */
-function waitForElement(selector: string, timeout = 3500): Promise<HTMLElement | null> {
+function waitForElement(selector: string, timeout = 700): Promise<HTMLElement | null> {
   return new Promise((resolve) => {
     const el = document.querySelector<HTMLElement>(selector)
-    if (el) return resolve(el)
+    if (el && (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0)) {
+      return resolve(el)
+    }
 
     const startTime = Date.now()
     const interval = setInterval(() => {
       const found = document.querySelector<HTMLElement>(selector)
-      if (found) {
+      if (found && (found.offsetWidth > 0 || found.offsetHeight > 0 || found.getClientRects().length > 0)) {
         clearInterval(interval)
         resolve(found)
       } else if (Date.now() - startTime > timeout) {
         clearInterval(interval)
         resolve(null)
       }
-    }, 50)
+    }, 40)
   })
 }
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { preferences } = useUiPreferences()
   const driverInstanceRef = useRef<Driver | null>(null)
   const isTransitioningRef = useRef(false)
 
@@ -513,6 +518,11 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
   const executeStep = useCallback(
     async (stepIndex: number) => {
+      if (!preferences.enableTour) {
+        stopTour()
+        return
+      }
+
       if (stepIndex < 0 || stepIndex >= TOUR_STEPS.length) {
         stopTour()
         return
@@ -543,9 +553,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const targetEl = await waitForElement(step.element, 3500)
+      const targetEl = await waitForElement(step.element, 700)
       if (!targetEl) {
-        console.warn(`[Tour] Elemento ${step.element} no encontrado en ${step.route}. Saltando...`)
+        // Elemento oculto o desactivado por preferencias del usuario, pasar de inmediato
         if (stepIndex + 1 < TOUR_STEPS.length) {
           executeStep(stepIndex + 1)
         } else {
@@ -689,10 +699,15 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       driverInstanceRef.current = driverObj
       driverObj.drive()
     },
-    [location.pathname, navigate, stopTour, cleanupDriver]
+    [location.pathname, navigate, stopTour, cleanupDriver, preferences.enableTour]
   )
 
   const startTour = useCallback(() => {
+    if (!preferences.enableTour) {
+      toast('El tour guiado está desactivado en tu configuración de interfaz.', { icon: 'ℹ️' })
+      return
+    }
+
     sessionStorage.setItem('agendapro_tour_active', 'true')
     sessionStorage.setItem('agendapro_tour_step', '0')
     isTransitioningRef.current = true
@@ -703,7 +718,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     } else {
       executeStep(0)
     }
-  }, [location.pathname, navigate, executeStep, cleanupDriver])
+  }, [location.pathname, navigate, executeStep, cleanupDriver, preferences.enableTour])
 
   // Listener para continuar el tour cuando cambia la ruta de la aplicación
   useEffect(() => {

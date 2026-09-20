@@ -57,10 +57,14 @@ export interface Task {
   priority: TaskPriority
   due_date: string | null       // ISO date string (YYYY-MM-DD)
   due_time: string | null       // HH:MM:SS
+  start_time?: string | null    // HH:MM:SS (Hora de inicio formal)
+  end_time?: string | null      // HH:MM:SS (Hora de finalización estimada)
   location: string | null
   scope_period: TaskScope
   category: string | null
   tags: string[]
+  participants?: string[]       // Personas, docentes o grupos participantes
+  materials?: string[]          // Lista de materiales, útiles o recursos necesarios
   is_shared: boolean
   shared_with: string[]
   checklist?: TaskSubtask[]     // Lista de pasos o subtareas

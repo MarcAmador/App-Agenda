@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { useLocation, useNavigate, Navigate } from 'react-router-dom'
+import { useLocation, useNavigate, Navigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { authService } from '@/services/auth.service'
 import {
@@ -528,8 +528,10 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-[11px] text-base-content/40 leading-relaxed">
-            Al continuar, aceptas las políticas institucionales y términos de uso de{' '}
-            <strong className="text-base-content/60">AgendaPro SaaS</strong>.
+            Al continuar, aceptas nuestros{' '}
+            <Link to="/terminos" className="text-primary hover:underline font-medium">Términos de Servicio</Link>
+            {' '}y nuestra{' '}
+            <Link to="/privacidad" className="text-primary hover:underline font-medium">Política de Privacidad</Link>.
           </p>
         </div>
       </div>

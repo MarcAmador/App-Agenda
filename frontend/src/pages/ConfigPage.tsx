@@ -3,6 +3,7 @@ import { Sparkles, Play } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UserProfileCard } from '@/components/config/UserProfileCard'
 import { NotificationSettings } from '@/components/config/NotificationSettings'
+import { UiCustomizationSettings } from '@/components/config/UiCustomizationSettings'
 import { ThemeSettings } from '@/components/config/ThemeSettings'
 import { ReminderLogsTable } from '@/components/config/ReminderLogsTable'
 import { useOnboardingTour } from '@/hooks/useOnboardingTour'
@@ -71,7 +72,10 @@ export default function ConfigPage() {
           <NotificationSettings />
         </div>
 
-        {/* 3. Ajustes de Apariencia / Tema */}
+        {/* 3. Personalización de Interfaz y Vistas */}
+        <UiCustomizationSettings />
+
+        {/* 4. Ajustes de Apariencia / Tema */}
         <ThemeSettings />
 
         {/* 4. Tour Guiado de Bienvenida */}

@@ -16,6 +16,7 @@ import {
 import type { Task, TaskPriority, TaskStatus } from '@/types/database.types'
 import { useAuth } from '@/context/AuthContext'
 import { downloadICalFile } from '@/utils/calendarExport'
+import { printExecutiveReport } from '@/utils/printReport'
 import toast from 'react-hot-toast'
 
 interface ExecutiveReportModalProps {
@@ -201,11 +202,15 @@ export function ExecutiveReportModal({ visible, onHide, tasks }: ExecutiveReport
     toast.success('📊 Archivo Excel/CSV generado con éxito', { icon: '📥' })
   }
 
-  // Imprimir / Guardar en PDF
+  // Imprimir / Guardar en PDF con ventana y documento dedicado
   const handlePrint = () => {
-    window.print()
+    printExecutiveReport({
+      tasks: filteredTasks,
+      kpis,
+      userName: (user?.user_metadata?.full_name as string) || 'Docente Titular',
+      userEmail: user?.email || '',
+    })
   }
-
   // Exportar a Calendario (.ics para Google Calendar, Apple, Outlook)
   const handleExportICal = () => {
     if (filteredTasks.length === 0) {
@@ -234,29 +239,7 @@ export function ExecutiveReportModal({ visible, onHide, tasks }: ExecutiveReport
       contentClassName="p-0 bg-base-100"
       maskClassName="backdrop-blur-sm bg-base-900/50"
     >
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #executive-printable-area, #executive-printable-area * {
-            visibility: visible !important;
-          }
-          #executive-printable-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 24px !important;
-            background: white !important;
-            color: #0f172a !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}</style>
+
 
       {/* ── Encabezado Modal y Controles de Acción ─────────────────── */}
       <div className="p-5 border-b border-base-200 bg-gradient-to-r from-primary/10 via-base-100 to-secondary/10 flex items-center justify-between gap-4 flex-wrap no-print">
