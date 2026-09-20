@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { adminService } from '@/services/admin.service'
 
 export type UiMode = 'basico' | 'avanzado' | 'personalizado'
 
@@ -13,19 +14,31 @@ export interface UiPreferences {
   // Tareas
   showTasksKpis: boolean
   showTasksQuickNav: boolean
+  showTasksViewSelector: boolean
+  showTasksExport: boolean
+  viewModeKanban: boolean
+  viewModeCalendario: boolean
+  viewModeMatriz: boolean
   // Calendario
   showCalendarKpis: boolean
   showCalendarQuickNav: boolean
+  showCalendarFilters: boolean
+  showCalendarWeekView: boolean
   // Matriz
   showMatrixKpis: boolean
   showMatrixQuickNav: boolean
   // Modal de Tarea
   showNewTaskTemplates: boolean
   showNewTaskAI: boolean
+  showNewTaskResources: boolean
+  showNewTaskParticipants: boolean
+  showNewTaskMaterials: boolean
   // Archivo y Sistema
   autoArchiveCompleted: boolean
   enableTour: boolean
 }
+
+export type UiPreferenceKey = keyof Omit<UiPreferences, 'mode'>
 
 const STORAGE_KEY = 'agendapro_ui_preferences'
 
@@ -39,12 +52,22 @@ const PRESETS: Record<'basico' | 'avanzado', UiPreferences> = {
     showDashboardQuickModules: false,
     showTasksKpis: false,
     showTasksQuickNav: false,
+    showTasksViewSelector: true,
+    showTasksExport: false,
+    viewModeKanban: true,
+    viewModeCalendario: true,
+    viewModeMatriz: false,
     showCalendarKpis: false,
     showCalendarQuickNav: false,
+    showCalendarFilters: false,
+    showCalendarWeekView: false,
     showMatrixKpis: false,
     showMatrixQuickNav: false,
     showNewTaskTemplates: false,
     showNewTaskAI: false,
+    showNewTaskResources: false,
+    showNewTaskParticipants: false,
+    showNewTaskMaterials: false,
     autoArchiveCompleted: true,
     enableTour: false,
   },
@@ -57,12 +80,22 @@ const PRESETS: Record<'basico' | 'avanzado', UiPreferences> = {
     showDashboardQuickModules: true,
     showTasksKpis: true,
     showTasksQuickNav: true,
+    showTasksViewSelector: true,
+    showTasksExport: true,
+    viewModeKanban: true,
+    viewModeCalendario: true,
+    viewModeMatriz: true,
     showCalendarKpis: true,
     showCalendarQuickNav: true,
+    showCalendarFilters: true,
+    showCalendarWeekView: true,
     showMatrixKpis: true,
     showMatrixQuickNav: true,
     showNewTaskTemplates: true,
     showNewTaskAI: true,
+    showNewTaskResources: true,
+    showNewTaskParticipants: true,
+    showNewTaskMaterials: true,
     autoArchiveCompleted: false,
     enableTour: true,
   },
@@ -70,15 +103,23 @@ const PRESETS: Record<'basico' | 'avanzado', UiPreferences> = {
 
 interface UiPreferencesContextValue {
   preferences: UiPreferences
+  superadminPermissions: Record<string, boolean>
   setMode: (mode: 'basico' | 'avanzado') => void
-  togglePreference: (key: keyof Omit<UiPreferences, 'mode'>) => void
-  setPreference: <K extends keyof Omit<UiPreferences, 'mode'>>(key: K, value: UiPreferences[K]) => void
+  togglePreference: (key: UiPreferenceKey) => void
+  setPreference: <K extends UiPreferenceKey>(key: K, value: UiPreferences[K]) => void
   resetToDefaults: () => void
+  /** Indica si el SuperAdmin permite a los usuarios acceder/activar este elemento */
+  isFeatureAvailable: (key: UiPreferenceKey | string) => boolean
+  /** Indica si el elemento está disponible por SuperAdmin Y activo por el usuario */
+  isFeatureVisible: (key: UiPreferenceKey) => boolean
+  refreshPermissions: () => Promise<void>
 }
 
 const UiPreferencesContext = createContext<UiPreferencesContextValue | null>(null)
 
 export function UiPreferencesProvider({ children }: { children: ReactNode }) {
+  const [superadminPermissions, setSuperadminPermissions] = useState<Record<string, boolean>>({})
+
   const [preferences, setPreferences] = useState<UiPreferences>(() => {
     if (typeof window === 'undefined') return PRESETS.avanzado
     try {
@@ -92,6 +133,21 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
     return PRESETS.avanzado
   })
 
+  const loadPermissions = useCallback(async () => {
+    try {
+      const publicSettings = await adminService.getPublicSettings()
+      if (publicSettings.ui_feature_permissions) {
+        setSuperadminPermissions(publicSettings.ui_feature_permissions)
+      }
+    } catch {
+      // fallback
+    }
+  }, [])
+
+  useEffect(() => {
+    loadPermissions()
+  }, [loadPermissions])
+
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
@@ -104,7 +160,7 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
     setPreferences({ ...PRESETS[mode] })
   }, [])
 
-  const togglePreference = useCallback((key: keyof Omit<UiPreferences, 'mode'>) => {
+  const togglePreference = useCallback((key: UiPreferenceKey) => {
     setPreferences((prev) => ({
       ...prev,
       mode: 'personalizado',
@@ -113,7 +169,7 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setPreference = useCallback(
-    <K extends keyof Omit<UiPreferences, 'mode'>>(key: K, value: UiPreferences[K]) => {
+    <K extends UiPreferenceKey>(key: K, value: UiPreferences[K]) => {
       setPreferences((prev) => ({
         ...prev,
         mode: 'personalizado',
@@ -127,14 +183,36 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
     setPreferences(PRESETS.avanzado)
   }, [])
 
+  const isFeatureAvailable = useCallback(
+    (key: UiPreferenceKey | string): boolean => {
+      // Si el SuperAdmin restringió explícitamente el elemento en false, no está disponible
+      if (superadminPermissions[key] === false) return false
+      return true
+    },
+    [superadminPermissions]
+  )
+
+  const isFeatureVisible = useCallback(
+    (key: UiPreferenceKey): boolean => {
+      // El elemento debe estar permitido por SuperAdmin Y encendido en las preferencias del usuario
+      if (!isFeatureAvailable(key)) return false
+      return Boolean(preferences[key])
+    },
+    [isFeatureAvailable, preferences]
+  )
+
   return (
     <UiPreferencesContext.Provider
       value={{
         preferences,
+        superadminPermissions,
         setMode,
         togglePreference,
         setPreference,
         resetToDefaults,
+        isFeatureAvailable,
+        isFeatureVisible,
+        refreshPermissions: loadPermissions,
       }}
     >
       {children}
@@ -145,13 +223,16 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
 export function useUiPreferences() {
   const ctx = useContext(UiPreferencesContext)
   if (!ctx) {
-    // Si se usa fuera del Provider, entregar defaults sin romper
     return {
       preferences: PRESETS.avanzado,
+      superadminPermissions: {},
       setMode: () => {},
       togglePreference: () => {},
       setPreference: () => {},
       resetToDefaults: () => {},
+      isFeatureAvailable: () => true,
+      isFeatureVisible: (k: UiPreferenceKey) => PRESETS.avanzado[k],
+      refreshPermissions: async () => {},
     }
   }
   return ctx

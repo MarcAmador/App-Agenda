@@ -12,14 +12,78 @@ import {
   Plus,
   X,
   Globe,
+  Sliders,
+  CheckCheck,
+  XCircle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+const UI_FEATURE_GROUPS = [
+  {
+    title: 'Módulos y Vistas Principales',
+    description: 'Controla qué vistas completas de la aplicación están disponibles para los usuarios.',
+    items: [
+      { key: 'viewModeKanban', label: 'Tablero Kanban', desc: 'Vista de tarjetas por columnas de estado' },
+      { key: 'viewModeCalendario', label: 'Calendario de Tareas', desc: 'Vistas mensual y semanal de eventos y compromisos' },
+      { key: 'viewModeMatriz', label: 'Matriz de Eisenhower', desc: 'Cuadrantes de prioridad e importancia' },
+    ],
+  },
+  {
+    title: 'Dashboard y Pantalla Principal',
+    description: 'Componentes y widgets de la pantalla de inicio.',
+    items: [
+      { key: 'showDashboardWelcome', label: 'Banner de Bienvenida', desc: 'Saludo personalizado y fecha actual' },
+      { key: 'showDashboardKpis', label: 'Métricas y KPIs', desc: 'Contadores de pendientes, completadas y progreso' },
+      { key: 'showDashboardPriorityDistribution', label: 'Distribución de Prioridad', desc: 'Gráficos con carga de tareas por prioridad' },
+      { key: 'showDashboardUpcoming', label: 'Tareas Próximas', desc: 'Lista de compromisos urgentes y vencimientos' },
+      { key: 'showDashboardQuickModules', label: 'Accesos Rápidos a Módulos', desc: 'Botones directos a vistas y herramientas' },
+    ],
+  },
+  {
+    title: 'Gestión y Barra de Tareas',
+    description: 'Elementos de la vista principal de gestión de tareas.',
+    items: [
+      { key: 'showTasksKpis', label: 'Métricas de Tareas', desc: 'Resumen superior de tareas en curso' },
+      { key: 'showTasksQuickNav', label: 'Navegación Rápida', desc: 'Botones de filtro y atajos entre vistas' },
+      { key: 'showTasksViewSelector', label: 'Selector de Vistas', desc: 'Pestañas para cambiar entre Lista, Kanban y Calendario' },
+      { key: 'showTasksExport', label: 'Exportación a CSV', desc: 'Descarga de datos de tareas en formato CSV' },
+    ],
+  },
+  {
+    title: 'Calendario Avanzado',
+    description: 'Herramientas auxiliares del módulo de calendario.',
+    items: [
+      { key: 'showCalendarKpis', label: 'Métricas del Calendario', desc: 'Contadores de carga semanal y mensual' },
+      { key: 'showCalendarQuickNav', label: 'Navegación Rápida', desc: 'Accesos a hoy, semana y mes' },
+      { key: 'showCalendarFilters', label: 'Filtros y Búsqueda', desc: 'Filtros por prioridad y campo de búsqueda' },
+      { key: 'showCalendarWeekView', label: 'Vista Semanal por Horas', desc: 'Grilla horaria de lunes a domingo' },
+    ],
+  },
+  {
+    title: 'Modal de Creación y Edición de Tareas',
+    description: 'Funciones avanzadas disponibles en el formulario de tareas.',
+    items: [
+      { key: 'showNewTaskTemplates', label: 'Plantillas Rápidas', desc: 'Preconfiguraciones de tareas docentes' },
+      { key: 'showNewTaskAI', label: 'Asistente de IA', desc: 'Desglose inteligente de tareas con Gemini' },
+      { key: 'showNewTaskResources', label: 'Recursos y Archivos', desc: 'Enlaces y archivos adjuntos' },
+      { key: 'showNewTaskParticipants', label: 'Participantes e Invitados', desc: 'Asignación de correos y colaboradores' },
+      { key: 'showNewTaskMaterials', label: 'Materiales Requeridos', desc: 'Checklist de insumos y recursos de clase' },
+    ],
+  },
+  {
+    title: 'Sistema y Guías',
+    description: 'Ayudas interactivas y recorridos de bienvenida.',
+    items: [
+      { key: 'enableTour', label: 'Tour Guiado Interactivo', desc: 'Recorrido explicativo para nuevos usuarios' },
+    ],
+  },
+]
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'app' | 'users' | 'security' | 'notifications'>('app')
+  const [activeTab, setActiveTab] = useState<'app' | 'users' | 'security' | 'notifications' | 'ui_elements'>('app')
   const [newDomain, setNewDomain] = useState('')
 
   const loadSettings = async () => {
@@ -173,6 +237,14 @@ export default function AdminSettingsPage() {
         >
           <Shield className="w-4 h-4 mr-1.5 text-warning" />
           Seguridad &amp; Sesiones
+        </button>
+
+        <button
+          onClick={() => setActiveTab('ui_elements')}
+          className={`tab font-bold text-sm ${activeTab === 'ui_elements' ? 'tab-active' : ''}`}
+        >
+          <Sliders className="w-4 h-4 mr-1.5 text-info" />
+          Permisos de Módulos &amp; UI
         </button>
       </div>
 
@@ -616,6 +688,117 @@ export default function AdminSettingsPage() {
                 </p>
                 <span className="badge badge-primary badge-sm font-semibold">Integrado con Supabase Auth</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 5: PERMISOS DE MÓDULOS Y UI (SUPERADMIN CONTROL) ── */}
+        {activeTab === 'ui_elements' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-info/10 via-base-200/50 to-primary/10 border border-base-300">
+              <div>
+                <h2 className="font-extrabold text-base flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-info" />
+                  Control Maestro de Módulos y Elementos de UI
+                </h2>
+                <p className="text-xs text-base-content/70 mt-1 max-w-2xl">
+                  Como SuperAdmin, puedes deshabilitar globalmente vistas o componentes de la interfaz. Los elementos deshabilitados se bloquearán para todos los usuarios con un distintivo informativo, impidiendo su activación.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allTrue: Record<string, boolean> = {}
+                    UI_FEATURE_GROUPS.forEach((g) => g.items.forEach((i) => { allTrue[i.key] = true }))
+                    setSettings({ ...settings, ui_feature_permissions: allTrue })
+                    toast.success('Todos los módulos habilitados. Recuerda guardar cambios.')
+                  }}
+                  className="btn btn-xs btn-outline btn-success gap-1"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  Habilitar Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = { ...(settings.ui_feature_permissions || {}) }
+                    const optional = [
+                      'viewModeMatriz',
+                      'showNewTaskAI',
+                      'showDashboardPriorityDistribution',
+                      'showTasksExport',
+                      'showCalendarWeekView',
+                    ]
+                    optional.forEach((k) => { current[k] = false })
+                    setSettings({ ...settings, ui_feature_permissions: current })
+                    toast.success('Módulos opcionales restringidos. Guarda los cambios para aplicar.')
+                  }}
+                  className="btn btn-xs btn-outline btn-warning gap-1"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Restringir Opcionales
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {UI_FEATURE_GROUPS.map((group) => (
+                <div
+                  key={group.title}
+                  className="p-5 rounded-2xl bg-base-200/40 border border-base-300 space-y-3"
+                >
+                  <div>
+                    <h3 className="text-sm font-extrabold text-base-content flex items-center gap-2">
+                      {group.title}
+                    </h3>
+                    <p className="text-xs text-base-content/60">{group.description}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {group.items.map((item) => {
+                      const isEnabled = settings.ui_feature_permissions?.[item.key] !== false
+                      return (
+                        <label
+                          key={item.key}
+                          className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                            isEnabled
+                              ? 'bg-base-100 border-base-200 shadow-xs'
+                              : 'bg-error/5 border-error/20 opacity-80'
+                          }`}
+                        >
+                          <div className="space-y-0.5 min-w-0 pr-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-base-content">{item.label}</span>
+                              {!isEnabled && (
+                                <span className="badge badge-error badge-xs font-bold text-[10px] py-0.5">
+                                  Restringido
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-base-content/60 leading-tight">{item.desc}</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            onChange={(e) => {
+                              setSettings({
+                                ...settings,
+                                ui_feature_permissions: {
+                                  ...(settings.ui_feature_permissions || {}),
+                                  [item.key]: e.target.checked,
+                                },
+                              })
+                            }}
+                            className="toggle toggle-info toggle-sm shrink-0"
+                          />
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
