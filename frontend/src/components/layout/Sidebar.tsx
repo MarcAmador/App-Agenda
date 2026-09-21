@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, LayoutList, CalendarDays,
-  Grid2x2, Settings, X, Download,
+  Grid2x2, Settings, X, Download, Shield, LayoutGrid,
 } from 'lucide-react'
 import { useTasks, useTasksRealtime } from '@/hooks/useTasks'
 import { useAuth } from '@/context/AuthContext'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
-import { Shield } from 'lucide-react'
+import { useUiPreferences } from '@/context/UiPreferencesContext'
 
 interface SidebarProps {
   open: boolean
@@ -16,6 +16,7 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { isAdmin, isSuperAdmin } = useAuth()
   const { canInstall, promptInstall } = usePWAInstall()
+  const { isFeatureVisible } = useUiPreferences()
 
   // Sincronización reactiva en tiempo real
   useTasksRealtime()
@@ -30,8 +31,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const navItems = [
     { to: '/',           icon: LayoutDashboard, label: 'Dashboard',     end: true },
     { to: '/tareas',     icon: LayoutList,      label: 'Tareas',        end: false, badge: pendingCount > 0 ? String(pendingCount) : undefined },
-    { to: '/calendario', icon: CalendarDays,    label: 'Calendario',    end: false },
-    { to: '/matriz',     icon: Grid2x2,         label: 'Matriz',        end: false },
+    ...(isFeatureVisible('viewModeKanban') ? [{ to: '/kanban', icon: LayoutGrid, label: 'Kanban', end: false }] : []),
+    ...(isFeatureVisible('viewModeCalendario') ? [{ to: '/calendario', icon: CalendarDays, label: 'Calendario', end: false }] : []),
+    ...(isFeatureVisible('viewModeMatriz') ? [{ to: '/matriz', icon: Grid2x2, label: 'Matriz', end: false }] : []),
     { to: '/config',     icon: Settings,        label: 'Configuración', end: false },
     ...(isAdmin || isSuperAdmin
       ? [{
@@ -80,29 +82,32 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Navegación */}
         <nav id="tour-sidebar-nav" className="flex-1 px-3 py-4 overflow-y-auto">
           <ul className="flex flex-col gap-0.5">
-            {navItems.map(({ to, icon: Icon, label, end, badge }) => (
-              <li key={to}>
-                <NavLink
-                  to={to}
-                  end={end}
-                  className={({ isActive }) => [
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-base-content/70 hover:bg-base-200 hover:text-base-content',
-                  ].join(' ')}
-                  onClick={() => window.innerWidth < 1024 && onClose()}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1">{label}</span>
-                  {badge && (
-                    <span className={`badge badge-xs font-bold px-1.5 py-0.5 text-[10px] rounded-full shadow-xs ${'badgeClass' in navItems.find(n => n.to === to)! ? 'bg-primary text-primary-content font-extrabold' : 'badge-primary'}`}>
-                      {badge}
-                    </span>
-                  )}
-                </NavLink>
-              </li>
-            ))}
+            {navItems.map(({ to, icon: Icon, label, end, badge, ...rest }) => {
+              const badgeClass = 'badgeClass' in rest ? (rest as { badgeClass: string }).badgeClass : 'badge-primary'
+              return (
+                <li key={to}>
+                  <NavLink
+                    to={to}
+                    end={end}
+                    className={({ isActive }) => [
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-base-content/70 hover:bg-base-200 hover:text-base-content',
+                    ].join(' ')}
+                    onClick={() => window.innerWidth < 1024 && onClose()}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1">{label}</span>
+                    {badge && (
+                      <span className={`badge badge-xs font-bold px-1.5 py-0.5 text-[10px] rounded-full shadow-xs ${badgeClass}`}>
+                        {badge}
+                      </span>
+                    )}
+                  </NavLink>
+                </li>
+              )
+            })}
           </ul>
         </nav>
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminService } from '@/services/admin.service'
 import {
   Mail,
@@ -26,42 +27,37 @@ interface EmailLogItem {
 }
 
 export default function AdminEmailsPage() {
-  const [logs, setLogs] = useState<EmailLogItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedLog, setSelectedLog] = useState<EmailLogItem | null>(null)
   const [retryingId, setRetryingId] = useState<string | null>(null)
 
-  const loadLogs = async () => {
-    try {
-      setLoading(true)
-      const res = await adminService.getEmailLogs({
-        status: statusFilter,
-        search: search.trim() || undefined,
-      })
-      setLogs((res.logs as unknown as EmailLogItem[]) || [])
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      toast.error(`Error cargando logs de correo: ${msg}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadLogs()
-    }, 250)
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300)
     return () => clearTimeout(timer)
-  }, [statusFilter, search])
+  }, [search])
+
+  const emailsQueryKey = ['admin', 'emails', { statusFilter, search: debouncedSearch }]
+
+  const { data: logsData, isLoading: loading } = useQuery<{ logs: unknown[]; total: number }>({
+    queryKey: emailsQueryKey,
+    queryFn: () => adminService.getEmailLogs({
+      status: statusFilter,
+      search: debouncedSearch || undefined,
+    }),
+    staleTime: 1000 * 30,  // 30 seg de caché para logs de correo
+  })
+
+  const logs = (logsData?.logs as unknown as EmailLogItem[]) ?? []
 
   const handleRetry = async (logId: string) => {
     try {
       setRetryingId(logId)
       await adminService.retryEmail(logId)
       toast.success('Reintento de despacho programado exitosamente.')
-      loadLogs()
+      qc.invalidateQueries({ queryKey: ['admin', 'emails'] })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       toast.error(`Error al reintentar: ${msg}`)
@@ -98,7 +94,7 @@ export default function AdminEmailsPage() {
           </p>
         </div>
 
-        <button onClick={loadLogs} className="btn btn-sm btn-outline gap-1.5 self-start sm:self-auto">
+        <button onClick={() => qc.invalidateQueries({ queryKey: ['admin', 'emails'] })} className="btn btn-sm btn-outline gap-1.5 self-start sm:self-auto">
           <RefreshCw className="w-4 h-4" />
           <span>Actualizar Cola</span>
         </button>
@@ -126,7 +122,7 @@ export default function AdminEmailsPage() {
               placeholder="Buscar por correo o asunto..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadLogs()}
+              onKeyDown={(e) => e.key === 'Enter' && qc.invalidateQueries({ queryKey: ['admin', 'emails'] })}
               className="input input-bordered input-sm w-full pl-9"
             />
           </div>

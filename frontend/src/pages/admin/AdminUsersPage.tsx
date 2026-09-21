@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminService, type AdminUser } from '@/services/admin.service'
 import {
   Users,
@@ -18,11 +19,35 @@ import {
 import toast from 'react-hot-toast'
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [loading, setLoading] = useState(true)
+  const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Debounce del campo de búsqueda para no disparar queries en cada keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const usersQueryKey = ['admin', 'users', { search: debouncedSearch, roleFilter, statusFilter }]
+
+  const { data: usersData, isLoading: loading } = useQuery<{ users: AdminUser[]; total: number }>({
+    queryKey: usersQueryKey,
+    queryFn: () => adminService.getUsers({
+      search: debouncedSearch || undefined,
+      role: roleFilter !== 'all' ? roleFilter : undefined,
+      status: statusFilter !== 'all' ? statusFilter : undefined,
+    }),
+    staleTime: 1000 * 60,  // 1 minuto de caché para lista de usuarios
+  })
+
+  const users = usersData?.users ?? []
+
+  const loadUsers = () => {
+    qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+  }
 
   // Modales
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
@@ -50,30 +75,6 @@ export default function AdminUsersPage() {
       setUserDevices([])
     }
   }, [selectedUser?.email])
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true)
-      const res = await adminService.getUsers({
-        search: search.trim() || undefined,
-        role: roleFilter !== 'all' ? roleFilter : undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-      })
-      setUsers(res.users)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      toast.error(`Error cargando usuarios: ${msg}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadUsers()
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [search, roleFilter, statusFilter])
 
   const handleRoleChangeConfirm = async () => {
     if (!userRoleUpdate) return

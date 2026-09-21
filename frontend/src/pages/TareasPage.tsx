@@ -1,14 +1,19 @@
+import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { TasksView } from '@/components/tasks/TasksView'
+import { TasksView, type ViewMode } from '@/components/tasks/TasksView'
 
-/**
- * Página de Tareas — Fase 3.
- * Aloja la vista principal de DataTable con CRUD completo.
- */
-export default function TareasPage() {
+interface TareasPageProps {
+  initialView?: ViewMode
+}
+
+export default function TareasPage({ initialView }: TareasPageProps) {
+  const [searchParams] = useSearchParams()
+  const viewFromQuery = searchParams.get('view') as ViewMode | null
+  const selectedMode = initialView || viewFromQuery || 'tabla'
+
   return (
-    <AppLayout pageTitle="Tareas">
-      <TasksView />
+    <AppLayout pageTitle={selectedMode === 'kanban' ? 'Tablero Kanban' : 'Tareas'}>
+      <TasksView initialViewMode={selectedMode} />
     </AppLayout>
   )
 }

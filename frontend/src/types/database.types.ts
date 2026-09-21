@@ -90,7 +90,10 @@ export interface UserPreferences {
   reminder_lead_time_minutes: number
   theme: string
   daily_digest_enabled?: boolean
+  daily_digest_time?: string
   weekly_digest_enabled?: boolean
+  weekly_digest_day?: string
+  weekly_digest_time?: string
   login_alerts_enabled?: boolean
   task_reminders_enabled?: boolean
   dnd_enabled?: boolean

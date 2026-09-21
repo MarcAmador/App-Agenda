@@ -1,17 +1,13 @@
-import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus, LayoutList, Calendar, Grid2x2, X, FileText } from 'lucide-react'
-import type { Task, CreateTaskInput, TaskPriority } from '@/types/database.types'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Plus, LayoutList, Calendar, Grid2x2, X, FileText, LayoutGrid } from 'lucide-react'
+import type { Task, CreateTaskInput, TaskPriority, TaskStatus } from '@/types/database.types'
 import { TaskFilters } from '@/services/tasks.service'
 import { useUiPreferences } from '@/context/UiPreferencesContext'
 
 import {
-  useTasks,
-  useCreateTask,
-  useUpdateTask,
-  useUpdateTaskStatus,
-  useUpdateTaskPriority,
-  useDeleteTask,
+  useTasks, useCreateTask, useUpdateTask,
+  useUpdateTaskStatus, useUpdateTaskPriority, useDeleteTask,
 } from '@/hooks/useTasks'
 import { TaskDataTable } from '@/components/tasks/TaskDataTable'
 import { TaskFormModal } from '@/components/tasks/TaskFormModal'
@@ -21,8 +17,9 @@ import { useFocusTimer } from '@/context/FocusTimerContext'
 import { AdvancedFilterBar } from '@/components/tasks/AdvancedFilterBar'
 import { EisenhowerMatrix } from '@/components/matrix/EisenhowerMatrix'
 import { TaskCalendar } from '@/components/calendar/TaskCalendar'
+import { TaskKanbanBoard } from '@/components/tasks/TaskKanbanBoard'
 
-// ─── Pestañas de filtro rápido por temporalidad ───────────────────────────────
+// ─── Pestañas de filtro rápido ────────────────────────────────────────────────
 
 type QuickFilter = 'todos' | 'hoy' | 'semana' | 'mes'
 
@@ -34,10 +31,7 @@ function getDateRange(qf: QuickFilter): { due_from?: string; due_to?: string } {
     const day = String(d.getDate()).padStart(2, '0')
     return `${y}-${m}-${day}`
   }
-
-  if (qf === 'hoy') {
-    return { due_from: fmt(today), due_to: fmt(today) }
-  }
+  if (qf === 'hoy') return { due_from: fmt(today), due_to: fmt(today) }
   if (qf === 'semana') {
     const start = new Date(today)
     const dayOfWeek = today.getDay()
@@ -57,12 +51,12 @@ function getDateRange(qf: QuickFilter): { due_from?: string; due_to?: string } {
 
 const QUICK_TABS: { label: string; value: QuickFilter }[] = [
   { label: 'Todos', value: 'todos' },
-  { label: 'Hoy',   value: 'hoy' },
+  { label: 'Hoy', value: 'hoy' },
   { label: 'Esta Semana', value: 'semana' },
-  { label: 'Este Mes',    value: 'mes' },
+  { label: 'Este Mes', value: 'mes' },
 ]
 
-// ─── Estadísticas rápidas ─────────────────────────────────────────────────────
+// ─── Stat Cards ───────────────────────────────────────────────────────────────
 
 interface StatCardProps {
   label: string
@@ -85,18 +79,16 @@ function StatCard({ label, count, colorClass, onClick, active }: StatCardProps) 
       ].join(' ')}
     >
       <div className="card-body p-3.5 sm:p-4">
-        <p className="text-[11px] font-semibold text-base-content/60 uppercase tracking-wide">
-          {label}
-        </p>
+        <p className="text-[11px] font-semibold text-base-content/60 uppercase tracking-wide">{label}</p>
         <p className={`text-2xl font-bold ${colorClass} mt-0.5`}>{count}</p>
       </div>
     </button>
   )
 }
 
-// ─── Componente Principal ─────────────────────────────────────────────────────
+// ─── Tipos y props ────────────────────────────────────────────────────────────
 
-export type ViewMode = 'tabla' | 'calendario' | 'matriz'
+export type ViewMode = 'tabla' | 'kanban' | 'calendario' | 'matriz'
 
 interface TasksViewProps {
   initialViewMode?: ViewMode
@@ -104,10 +96,12 @@ interface TasksViewProps {
   pageSubtitle?: string
 }
 
+// ─── Componente Principal ─────────────────────────────────────────────────────
+
 export function TasksView({
   initialViewMode = 'tabla',
   pageTitle = 'Mis Tareas',
-  pageSubtitle = 'Gestiona tus actividades académicas, calendario y prioridades',
+  pageSubtitle = 'Gestiona tus actividades y prioridades',
 }: TasksViewProps) {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('todos')
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
@@ -117,7 +111,23 @@ export function TasksView({
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [initialModalValues, setInitialModalValues] = useState<Partial<CreateTaskInput> | null>(null)
   const [reportModalVisible, setReportModalVisible] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode)
+  const [searchParams] = useSearchParams()
+  const queryView = searchParams.get('view') as ViewMode | null
+  const [viewMode, setViewMode] = useState<ViewMode>(queryView || initialViewMode)
+
+  useEffect(() => {
+    if (initialViewMode && initialViewMode !== viewMode) {
+      setViewMode(initialViewMode)
+    }
+  }, [initialViewMode])
+
+  useEffect(() => {
+    const q = searchParams.get('view') as ViewMode | null
+    if (q && q !== viewMode) {
+      setViewMode(q)
+    }
+  }, [searchParams])
+
   const { startFocus } = useFocusTimer()
   const navigate = useNavigate()
 
@@ -126,9 +136,9 @@ export function TasksView({
     if (mode === 'tabla') navigate('/tareas')
     else if (mode === 'calendario') navigate('/calendario')
     else if (mode === 'matriz') navigate('/matriz')
+    else if (mode === 'kanban') navigate('/tareas?view=kanban')
   }
 
-  // Combinar filtros rápidos con filtros avanzados
   const combinedFilters: TaskFilters = {
     ...getDateRange(quickFilter),
     ...(statusFilter ? { status: statusFilter } : {}),
@@ -146,7 +156,6 @@ export function TasksView({
   const tasks = data?.data ?? []
   const totalRecords = data?.count ?? 0
 
-  // Conteos inteligentes para las stat cards (desacoplados del filtro de estado activo)
   const todayStr = new Date().toISOString().split('T')[0]
   const isOverdue = (t: Task) =>
     Boolean(t.due_date && t.due_date < todayStr && !['completada', 'anulada', 'archivada'].includes(t.status))
@@ -159,17 +168,35 @@ export function TasksView({
     perdida:    baseTasksForCounts.filter((t) => t.status === 'perdida' || isOverdue(t)).length,
   }
 
-  const { preferences } = useUiPreferences()
+  const { preferences, isFeatureVisible } = useUiPreferences()
+
+  const viewModesList = useMemo(() => {
+    const list: { mode: ViewMode; icon: React.ElementType; title: string; label: string }[] = [
+      { mode: 'tabla', icon: LayoutList, title: 'Vista Lista / Tabla', label: 'Lista' },
+    ]
+    if (isFeatureVisible('viewModeKanban')) {
+      list.push({ mode: 'kanban', icon: LayoutGrid, title: 'Tablero Kanban', label: 'Kanban' })
+    }
+    if (isFeatureVisible('viewModeCalendario')) {
+      list.push({ mode: 'calendario', icon: Calendar, title: 'Calendario', label: 'Calendario' })
+    }
+    if (isFeatureVisible('viewModeMatriz')) {
+      list.push({ mode: 'matriz', icon: Grid2x2, title: 'Matriz de Eisenhower', label: 'Matriz' })
+    }
+    return list
+  }, [isFeatureVisible])
 
   const showStats =
     (viewMode === 'tabla' && preferences.showTasksKpis) ||
     (viewMode === 'calendario' && preferences.showCalendarKpis) ||
-    (viewMode === 'matriz' && preferences.showMatrixKpis)
+    (viewMode === 'matriz' && preferences.showMatrixKpis) ||
+    (viewMode === 'kanban' && preferences.showTasksKpis)
 
-  const showQuickNav =
+  const showAdvancedFilters =
     (viewMode === 'tabla' && preferences.showTasksQuickNav) ||
     (viewMode === 'calendario' && preferences.showCalendarQuickNav) ||
-    (viewMode === 'matriz' && preferences.showMatrixQuickNav)
+    (viewMode === 'matriz' && preferences.showMatrixQuickNav) ||
+    (viewMode === 'kanban' && preferences.showTasksQuickNav)
 
   const displayedTasks = useMemo(() => {
     if (preferences.autoArchiveCompleted && statusFilter !== 'completada') {
@@ -180,9 +207,9 @@ export function TasksView({
 
   const hasActiveFilters = quickFilter !== 'todos' || statusFilter !== undefined || Object.keys(advancedFilters).length > 0
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = (status?: TaskStatus) => {
     setEditingTask(null)
-    setInitialModalValues(null)
+    setInitialModalValues(status ? { status } : null)
     setModalVisible(true)
   }
 
@@ -206,18 +233,13 @@ export function TasksView({
 
   const handleSubmit = (input: CreateTaskInput) => {
     if (editingTask) {
-      updateTask.mutate(
-        { id: editingTask.id, input },
-        { onSuccess: () => setModalVisible(false) }
-      )
+      updateTask.mutate({ id: editingTask.id, input }, { onSuccess: () => setModalVisible(false) })
     } else {
       createTask.mutate(input, { onSuccess: () => setModalVisible(false) })
     }
   }
 
-  const handleArchive = (id: string) => {
-    updateStatus.mutate({ id, status: 'archivada' })
-  }
+  const handleArchive = (id: string) => updateStatus.mutate({ id, status: 'archivada' })
 
   const handleClearAllFilters = () => {
     setQuickFilter('todos')
@@ -227,22 +249,19 @@ export function TasksView({
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
-      {/* ── Encabezado de sección ─────────────────────────────────── */}
+
+      {/* ── Encabezado ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-base-content">{pageTitle}</h2>
-          <p className="text-sm text-base-content/55 mt-0.5">{pageSubtitle}</p>
+          <p className="text-sm text-base-content/50 mt-0.5">{pageSubtitle}</p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Selector de vista interactivo */}
-          {showQuickNav && (
+          {/* Selector de vista */}
+          {isFeatureVisible('showTasksViewSelector') && viewModesList.length > 1 && (
             <div id="tour-view-modes" className="flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
-              {([
-                { mode: 'tabla',      icon: LayoutList, title: 'Vista Tabla' },
-                { mode: 'calendario', icon: Calendar,   title: 'Vista Calendario' },
-                { mode: 'matriz',     icon: Grid2x2,    title: 'Matriz de Eisenhower' },
-              ] as const).map(({ mode, icon: Icon, title }) => (
+              {viewModesList.map(({ mode, icon: Icon, title, label }) => (
                 <button
                   key={mode}
                   type="button"
@@ -256,29 +275,31 @@ export function TasksView({
                   ].join(' ')}
                 >
                   <Icon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline capitalize text-xs">
-                    {mode === 'matriz' ? 'Matriz' : mode}
+                  <span className="hidden sm:inline text-xs font-semibold">
+                    {label}
                   </span>
                 </button>
               ))}
             </div>
           )}
 
-          {/* Botón Exportar Informe Ejecutivo */}
-          <button
-            type="button"
-            onClick={() => setReportModalVisible(true)}
-            className="btn btn-outline btn-sm rounded-xl gap-1.5 hover:bg-base-200 transition-colors"
-            title="Generar informe ejecutivo de actividades docentes en PDF o Excel"
-          >
-            <FileText className="w-4 h-4 text-primary" />
-            <span className="hidden sm:inline">Exportar Reporte</span>
-          </button>
+          {/* Exportar Reporte */}
+          {isFeatureVisible('showTasksExport') && (
+            <button
+              type="button"
+              onClick={() => setReportModalVisible(true)}
+              className="btn btn-outline btn-sm rounded-xl gap-1.5 hover:bg-base-200 transition-colors"
+              title="Exportar informe ejecutivo"
+            >
+              <FileText className="w-4 h-4 text-primary" />
+              <span className="hidden sm:inline">Exportar</span>
+            </button>
+          )}
 
-          {/* Botón Nueva Tarea */}
+          {/* Nueva Tarea */}
           <button
             type="button"
-            onClick={handleOpenCreate}
+            onClick={() => handleOpenCreate()}
             className="btn btn-primary btn-sm rounded-xl gap-1.5 shadow-sm"
             id="btn-nueva-tarea"
           >
@@ -288,60 +309,44 @@ export function TasksView({
         </div>
       </div>
 
-      {/* ── Stat Cards Clicables ───────────────────────────────────── */}
+      {/* ── Stat Cards ─────────────────────────────────────────── */}
       {showStats && (
         <div id="tour-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
-            label="Pendientes"
-            count={counts.pendiente}
-            colorClass="text-warning"
+            label="Pendientes" count={counts.pendiente} colorClass="text-warning"
             active={statusFilter === 'pendiente'}
-            onClick={() =>
-              setStatusFilter(statusFilter === 'pendiente' ? undefined : 'pendiente')
-            }
+            onClick={() => setStatusFilter(statusFilter === 'pendiente' ? undefined : 'pendiente')}
           />
           <StatCard
-            label="En curso"
-            count={counts.en_curso}
-            colorClass="text-info"
+            label="En curso" count={counts.en_curso} colorClass="text-info"
             active={statusFilter === 'en_curso'}
-            onClick={() =>
-              setStatusFilter(statusFilter === 'en_curso' ? undefined : 'en_curso')
-            }
+            onClick={() => setStatusFilter(statusFilter === 'en_curso' ? undefined : 'en_curso')}
           />
           <StatCard
-            label="Completadas"
-            count={counts.completada}
-            colorClass="text-success"
+            label="Completadas" count={counts.completada} colorClass="text-success"
             active={statusFilter === 'completada'}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === 'completada' ? undefined : 'completada'
-              )
-            }
+            onClick={() => setStatusFilter(statusFilter === 'completada' ? undefined : 'completada')}
           />
           <StatCard
-            label="Vencidas"
-            count={counts.perdida}
-            colorClass="text-error"
+            label="Vencidas" count={counts.perdida} colorClass="text-error"
             active={statusFilter === 'perdida'}
-            onClick={() =>
-              setStatusFilter(statusFilter === 'perdida' ? undefined : 'perdida')
-            }
+            onClick={() => setStatusFilter(statusFilter === 'perdida' ? undefined : 'perdida')}
           />
         </div>
       )}
 
-      {/* ── Barra de Filtros Avanzados ────────────────────────────── */}
-      <div id="tour-advanced-filters">
-        <AdvancedFilterBar
-          filters={combinedFilters}
-          onFilterChange={(newF) => setAdvancedFilters(newF)}
-          onClear={handleClearAllFilters}
-        />
-      </div>
+      {/* ── Filtros Avanzados ────────────────────────────────────── */}
+      {showAdvancedFilters && (
+        <div id="tour-advanced-filters">
+          <AdvancedFilterBar
+            filters={combinedFilters}
+            onFilterChange={(newF) => setAdvancedFilters(newF)}
+            onClear={handleClearAllFilters}
+          />
+        </div>
+      )}
 
-      {/* ── Pestañas de Filtro Rápido Temporal (en vista Tabla) ───── */}
+      {/* ── Quick tabs (solo vista tabla) ────────────────────────── */}
       {viewMode === 'tabla' && (
         <div className="flex items-center justify-between gap-2 border-b border-base-200 flex-wrap">
           <div className="flex items-center gap-1">
@@ -361,13 +366,11 @@ export function TasksView({
               </button>
             ))}
           </div>
-
           {hasActiveFilters && (
             <button
               type="button"
               onClick={handleClearAllFilters}
               className="btn btn-ghost btn-xs text-xs text-error gap-1 mr-2 rounded-lg"
-              title="Restablecer todos los filtros aplicados"
             >
               <X className="w-3 h-3" />
               Limpiar filtros
@@ -376,7 +379,7 @@ export function TasksView({
         </div>
       )}
 
-      {/* ── Renderizado Dinámico de Vistas ───────────────────────── */}
+      {/* ── Vistas ───────────────────────────────────────────────── */}
       {viewMode === 'tabla' && (
         <div id="tour-tasks-table" className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden rounded-2xl">
           <TaskDataTable
@@ -388,6 +391,19 @@ export function TasksView({
             onDelete={(id) => deleteTask.mutate(id)}
             onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
             onArchive={handleArchive}
+          />
+        </div>
+      )}
+
+      {viewMode === 'kanban' && (
+        <div id="tour-kanban-view">
+          <TaskKanbanBoard
+            tasks={displayedTasks}
+            loading={isLoading}
+            onEdit={handleOpenEdit}
+            onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+            onDelete={(id) => deleteTask.mutate(id)}
+            onAddTask={(status) => handleOpenCreate(status)}
           />
         </div>
       )}
@@ -418,29 +434,26 @@ export function TasksView({
         </div>
       )}
 
-      {/* ── Modal de Formulario de Tarea (Reutilizable en todas las vistas) ── */}
+      {/* ── Modales globales ─────────────────────────────────────── */}
       <TaskFormModal
         visible={modalVisible}
         task={editingTask}
         initialValues={initialModalValues}
-        onHide={() => {
-          setModalVisible(false)
-          setInitialModalValues(null)
-        }}
+        onHide={() => { setModalVisible(false); setInitialModalValues(null) }}
         onSubmit={handleSubmit}
         isSubmitting={createTask.isPending || updateTask.isPending}
       />
 
-      {/* ── Modal de Detalles Completos de Tarea ── */}
       <TaskDetailModal
         visible={!!detailTask}
-        task={detailTask ? (tasks.find((t) => t.id === detailTask.id) || allTasksData?.data?.find((t) => t.id === detailTask.id) || detailTask) : null}
+        task={detailTask
+          ? (tasks.find((t) => t.id === detailTask.id) || allTasksData?.data?.find((t) => t.id === detailTask.id) || detailTask)
+          : null}
         onHide={() => setDetailTask(null)}
         onEdit={handleOpenEdit}
         onStartFocus={(t) => startFocus(t, 25)}
       />
 
-      {/* ── Modal de Informe Ejecutivo (PDF / Excel) ── */}
       <ExecutiveReportModal
         visible={reportModalVisible}
         onHide={() => setReportModalVisible(false)}

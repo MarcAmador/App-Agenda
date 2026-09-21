@@ -48,6 +48,10 @@ export default function AdminSmtpPage() {
     try {
       setSaving(true)
       const updated = await adminService.updateSettings({
+        email_provider: settings.email_provider || 'gmail_api',
+        gmail_client_id: settings.gmail_client_id,
+        gmail_client_secret: settings.gmail_client_secret,
+        gmail_refresh_token: settings.gmail_refresh_token,
         smtp_host: settings.smtp_host,
         smtp_port: Number(settings.smtp_port),
         smtp_secure: settings.smtp_secure,
@@ -57,10 +61,10 @@ export default function AdminSmtpPage() {
         smtp_from_email: settings.smtp_from_email,
       })
       setSettings(updated)
-      toast.success('¡Servidor SMTP oficial actualizado correctamente!')
+      toast.success('¡Configuración de correo oficial guardada con éxito!')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      toast.error(`Error al guardar SMTP: ${msg}`)
+      toast.error(`Error al guardar configuración: ${msg}`)
     } finally {
       setSaving(false)
     }
@@ -72,6 +76,10 @@ export default function AdminSmtpPage() {
       setTesting(true)
       setTestResult(null)
       const res = await adminService.testSmtp({
+        email_provider: settings.email_provider || 'gmail_api',
+        gmail_client_id: settings.gmail_client_id,
+        gmail_client_secret: settings.gmail_client_secret,
+        gmail_refresh_token: settings.gmail_refresh_token,
         host: settings.smtp_host,
         port: Number(settings.smtp_port),
         secure: settings.smtp_secure,
@@ -82,7 +90,7 @@ export default function AdminSmtpPage() {
       if (res.success) {
         toast.success(`Conexión exitosa (${res.latencyMs}ms)`)
       } else {
-        toast.error(`Error de conexión SMTP: ${res.message}`)
+        toast.error(`Error de conexión: ${res.message}`)
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -173,168 +181,258 @@ export default function AdminSmtpPage() {
               </div>
             )}
 
-            {/* Selector de Proveedor Rápido */}
-            <div className="bg-base-200/60 p-3 rounded-xl border border-base-300 space-y-2">
-              <span className="text-xs font-bold text-base-content/70 block">
-                Selecciona tu proveedor de correo:
-              </span>
-              <div className="flex flex-wrap gap-2">
+            {/* Selector Principal de Proveedor de Despacho */}
+            <div className="bg-base-200/60 p-4 rounded-2xl border border-base-300 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-base-content/80">
+                  Proveedor de Despacho Seleccionado:
+                </span>
+                <span className="badge badge-primary badge-sm font-semibold uppercase">
+                  {settings.email_provider || 'gmail_api'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setSettings({
                       ...settings,
+                      email_provider: 'gmail_api',
+                      smtp_port: 443,
+                      smtp_secure: true,
+                    })
+                  }}
+                  className={`btn btn-sm text-xs justify-start flex items-center gap-2 ${
+                    (settings.email_provider || 'gmail_api') === 'gmail_api'
+                      ? 'btn-primary shadow-sm'
+                      : 'btn-outline'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <div className="text-left leading-tight">
+                    <span className="font-bold block">Gmail REST API</span>
+                    <span className="text-[10px] opacity-75 font-normal">Google OAuth2 · HTTPS</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({
+                      ...settings,
+                      email_provider: 'brevo',
                       smtp_host: 'api.brevo.com',
                       smtp_port: 443,
                       smtp_secure: false,
                     })
                   }}
-                  className={`btn btn-xs ${
-                    settings.smtp_host.includes('brevo')
+                  className={`btn btn-sm text-xs justify-start flex items-center gap-2 ${
+                    settings.email_provider === 'brevo'
                       ? 'btn-primary shadow-sm'
                       : 'btn-outline'
                   }`}
                 >
-                  🚀 Brevo API (Gratis · Puerto 443 HTTPS)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSettings({
-                      ...settings,
-                      smtp_host: 'smtp.gmail.com',
-                      smtp_port: 587,
-                      smtp_secure: false,
-                    })
-                  }}
-                  className={`btn btn-xs ${
-                    settings.smtp_host.includes('gmail')
-                      ? 'btn-primary shadow-sm'
-                      : 'btn-outline'
-                  }`}
-                >
-                  ✉️ Gmail SMTP (Puerto 587)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSettings({
-                      ...settings,
-                      smtp_host: 'api.resend.com',
-                      smtp_port: 443,
-                      smtp_secure: false,
-                    })
-                  }}
-                  className={`btn btn-xs ${
-                    settings.smtp_host.includes('resend')
-                      ? 'btn-primary shadow-sm'
-                      : 'btn-outline'
-                  }`}
-                >
-                  ⚡ Resend API (Puerto 443)
-                </button>
-              </div>
-              {settings.smtp_host.includes('brevo') && (
-                <p className="text-[11px] text-success font-medium flex items-center gap-1 mt-1">
-                  ✓ Ideal para el plan gratuito de Render: Se comunica por HTTPS (puerto 443) y envía 300 correos diarios gratis desde tu cuenta de Gmail.
-                </p>
-              )}
-            </div>
-
-            {/* Servidor Host y Puerto */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2 form-control">
-                <label className="label py-1">
-                  <span className="label-text font-bold text-xs">Host o Proveedor:</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="api.brevo.com o smtp.gmail.com"
-                  value={settings.smtp_host}
-                  onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
-                  className="input input-bordered input-sm font-mono text-xs w-full"
-                />
-              </div>
-
-              <div className="form-control">
-                <label className="label py-1">
-                  <span className="label-text font-bold text-xs">Puerto:</span>
-                </label>
-                <input
-                  type="number"
-                  placeholder="443 o 587"
-                  value={settings.smtp_port}
-                  onChange={(e) => setSettings({ ...settings, smtp_port: Number(e.target.value) })}
-                  className="input input-bordered input-sm font-mono text-xs w-full"
-                />
-              </div>
-            </div>
-
-            {/* SSL/TLS Toggle (solo para SMTP directo) */}
-            {!settings.smtp_host.includes('brevo') && !settings.smtp_host.includes('resend') && (
-              <div className="form-control bg-base-200/50 p-3 rounded-xl border border-base-300">
-                <label className="label cursor-pointer p-0">
-                  <div>
-                    <span className="label-text font-bold text-xs block">Seguridad SSL / TLS Directo (Puerto 465):</span>
-                    <span className="text-[11px] text-base-content/60">
-                      Desactívalo si usas el puerto 587 (STARTTLS, recomendado para Gmail y Outlook).
-                    </span>
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  <div className="text-left leading-tight">
+                    <span className="font-bold block">Brevo API</span>
+                    <span className="text-[10px] opacity-75 font-normal">HTTP Relay · Puerto 443</span>
                   </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({
+                      ...settings,
+                      email_provider: 'smtp',
+                      smtp_host: settings.smtp_host === 'api.brevo.com' ? 'smtp.gmail.com' : settings.smtp_host,
+                      smtp_port: settings.smtp_port === 443 ? 587 : settings.smtp_port,
+                      smtp_secure: false,
+                    })
+                  }}
+                  className={`btn btn-sm text-xs justify-start flex items-center gap-2 ${
+                    settings.email_provider === 'smtp'
+                      ? 'btn-primary shadow-sm'
+                      : 'btn-outline'
+                  }`}
+                >
+                  <Server className="w-4 h-4 text-sky-400" />
+                  <div className="text-left leading-tight">
+                    <span className="font-bold block">SMTP Estándar</span>
+                    <span className="text-[10px] opacity-75 font-normal">Host / STARTTLS 587</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* ─── CASO 1: GMAIL REST API NATIVO (RECOMENDADO) ─── */}
+            {(settings.email_provider || 'gmail_api') === 'gmail_api' && (
+              <div className="space-y-3 p-4 rounded-2xl bg-primary/5 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-primary flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4" />
+                    Credenciales Google Cloud OAuth2 (Gmail API)
+                  </h3>
+                  <span className="badge badge-success badge-xs font-mono">PUERTO 443 HTTPS</span>
+                </div>
+                <p className="text-[11px] text-base-content/70">
+                  Los correos se despachan por HTTP REST a <code>googleapis.com</code> con el token de actualización de tu proyecto de Google Cloud. No sufre bloqueos de puertos ni caídas en Render o producción.
+                </p>
+
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text font-bold text-xs">Cuenta Gmail Remitente:</span>
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={settings.smtp_secure}
-                    onChange={(e) => setSettings({ ...settings, smtp_secure: e.target.checked })}
-                    className="toggle toggle-sm toggle-primary"
+                    type="email"
+                    placeholder="alertas.agendapro@gmail.com"
+                    value={settings.smtp_user || ''}
+                    onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
+                    className="input input-bordered input-sm font-medium text-xs w-full"
                   />
-                </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text font-bold text-xs">Google Client ID:</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="...apps.googleusercontent.com"
+                      value={settings.gmail_client_id || ''}
+                      onChange={(e) => setSettings({ ...settings, gmail_client_id: e.target.value })}
+                      className="input input-bordered input-sm font-mono text-xs w-full"
+                    />
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text font-bold text-xs">Google Client Secret:</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="GOCSPX-..."
+                      value={settings.gmail_client_secret || ''}
+                      onChange={(e) => setSettings({ ...settings, gmail_client_secret: e.target.value })}
+                      className="input input-bordered input-sm font-mono text-xs w-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text font-bold text-xs flex items-center gap-1">
+                      <KeyRound className="w-3.5 h-3.5 text-primary" />
+                      OAuth2 Refresh Token (GMAIL_REFRESH_TOKEN):
+                    </span>
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="1//04..."
+                    value={settings.gmail_refresh_token || ''}
+                    onChange={(e) => setSettings({ ...settings, gmail_refresh_token: e.target.value })}
+                    className="input input-bordered input-sm font-mono text-xs w-full"
+                  />
+                  <span className="text-[10px] text-base-content/50 mt-1">
+                    Si dejas estos campos vacíos, el backend usará las variables de entorno <code>GMAIL_CLIENT_ID</code>, <code>GMAIL_CLIENT_SECRET</code> y <code>GMAIL_REFRESH_TOKEN</code> si existen.
+                  </span>
+                </div>
               </div>
             )}
 
-            {/* Usuario y Contraseña / API Key */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="form-control">
-                <label className="label py-1">
-                  <span className="label-text font-bold text-xs">
-                    {settings.smtp_host.includes('brevo')
-                      ? 'Correo Remitente Registrado en Brevo:'
-                      : 'Usuario / Correo Autenticación:'}
-                  </span>
-                </label>
-                <input
-                  type="email"
-                  placeholder="alertas.agendapro@gmail.com"
-                  value={settings.smtp_user}
-                  onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
-                  className="input input-bordered input-sm font-medium text-xs w-full"
-                />
-              </div>
+            {/* ─── CASO 2: BREVO API O SMTP TRADICIONAL ─── */}
+            {(settings.email_provider === 'brevo' || settings.email_provider === 'smtp') && (
+              <div className="space-y-3">
+                {/* Servidor Host y Puerto */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 form-control">
+                    <label className="label py-1">
+                      <span className="label-text font-bold text-xs">Host o Proveedor:</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="api.brevo.com o smtp.gmail.com"
+                      value={settings.smtp_host}
+                      onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
+                      className="input input-bordered input-sm font-mono text-xs w-full"
+                    />
+                  </div>
 
-              <div className="form-control">
-                <label className="label py-1">
-                  <span className="label-text font-bold text-xs flex items-center gap-1">
-                    <KeyRound className="w-3 h-3 text-primary" />
-                    {settings.smtp_host.includes('brevo')
-                      ? 'API Key de Brevo (xkeysib-...):'
-                      : settings.smtp_host.includes('resend')
-                      ? 'API Key de Resend (re_...):'
-                      : 'Contraseña de Aplicación:'}
-                  </span>
-                </label>
-                <input
-                  type="password"
-                  placeholder={
-                    settings.smtp_host.includes('brevo')
-                      ? 'xkeysib-...'
-                      : settings.smtp_host.includes('resend')
-                      ? 're_...'
-                      : '••••••••••••••••'
-                  }
-                  value={settings.smtp_pass || ''}
-                  onChange={(e) => setSettings({ ...settings, smtp_pass: e.target.value })}
-                  className="input input-bordered input-sm font-mono text-xs w-full"
-                />
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text font-bold text-xs">Puerto:</span>
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="443 o 587"
+                      value={settings.smtp_port}
+                      onChange={(e) => setSettings({ ...settings, smtp_port: Number(e.target.value) })}
+                      className="input input-bordered input-sm font-mono text-xs w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* SSL/TLS Toggle */}
+                {settings.email_provider === 'smtp' && (
+                  <div className="form-control bg-base-200/50 p-3 rounded-xl border border-base-300">
+                    <label className="label cursor-pointer p-0">
+                      <div>
+                        <span className="label-text font-bold text-xs block">Seguridad SSL / TLS Directo (Puerto 465):</span>
+                        <span className="text-[11px] text-base-content/60">
+                          Desactívalo si usas el puerto 587 (STARTTLS, recomendado para Gmail y Outlook).
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={settings.smtp_secure}
+                        onChange={(e) => setSettings({ ...settings, smtp_secure: e.target.checked })}
+                        className="toggle toggle-sm toggle-primary"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {/* Usuario y Contraseña / API Key */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text font-bold text-xs">
+                        {settings.email_provider === 'brevo'
+                          ? 'Correo Remitente Registrado en Brevo:'
+                          : 'Usuario / Correo Autenticación:'}
+                      </span>
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="alertas.agendapro@gmail.com"
+                      value={settings.smtp_user}
+                      onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
+                      className="input input-bordered input-sm font-medium text-xs w-full"
+                    />
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text font-bold text-xs flex items-center gap-1">
+                        <KeyRound className="w-3 h-3 text-primary" />
+                        {settings.email_provider === 'brevo'
+                          ? 'API Key de Brevo (xkeysib-...):'
+                          : 'Contraseña de Aplicación:'}
+                      </span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder={settings.email_provider === 'brevo' ? 'xkeysib-...' : '••••••••••••••••'}
+                      value={settings.smtp_pass || ''}
+                      onChange={(e) => setSettings({ ...settings, smtp_pass: e.target.value })}
+                      className="input input-bordered input-sm font-mono text-xs w-full"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="divider my-1"></div>
 
@@ -418,25 +516,30 @@ export default function AdminSmtpPage() {
           <div className="card bg-base-100 border border-base-300 shadow-sm p-5 space-y-3 text-xs">
             <h3 className="font-bold text-sm flex items-center gap-2 text-primary">
               <Info className="w-4 h-4" />
-              ¿Cómo configurar Brevo gratis para enviar desde tu Gmail?
+              ¿Cómo funciona el despacho oficial de correos?
             </h3>
             <p className="text-base-content/80 leading-relaxed">
-              El plan gratuito de Render bloquea los puertos SMTP estándar (25, 465 y 587). Para enviar gratis sin pagar Render:
+              Para garantizar que los recordatorios lleguen puntualmente a la bandeja principal de los usuarios sin caer en spam ni sufrir bloqueos de puertos:
             </p>
-            <ol className="list-decimal list-inside space-y-2 text-base-content/80">
-              <li>
-                Crea una cuenta gratuita en <strong><a href="https://www.brevo.com" target="_blank" rel="noreferrer" className="link link-primary font-bold">brevo.com</a></strong> (te da 300 correos gratis al día).
-              </li>
-              <li>
-                Ve a tu perfil en Brevo &gt; <strong>Remitentes e IPs</strong> (Senders) &gt; Añade <code className="bg-base-200 px-1 py-0.5 rounded font-mono">alertas.agendapro@gmail.com</code>. Te llegará un correo de confirmación de 6 dígitos para verificar que eres el dueño.
-              </li>
-              <li>
-                Ve a tu perfil en Brevo &gt; <strong>SMTP y API</strong> &gt; pestaña <strong>Claves de API</strong> y genera una nueva clave (inicia con <code className="bg-base-200 px-1 py-0.5 rounded font-mono">xkeysib-...</code>).
-              </li>
-              <li>
-                En el formulario de la izquierda, haz clic en el botón <strong>"Brevo API (Gratis · Puerto 443 HTTPS)"</strong>, pega la clave en el campo <strong>API Key</strong> y haz clic en <strong>Diagnosticar Conexión</strong>.
-              </li>
-            </ol>
+            <div className="space-y-2 text-base-content/80">
+              <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/20 space-y-1">
+                <span className="font-bold text-primary flex items-center gap-1">
+                  1. Gmail REST API (Por Defecto · Recomendado)
+                </span>
+                <p className="text-[11px]">
+                  Utiliza las APIs oficiales de Google por el puerto HTTPS 443. Solo necesitas crear un proyecto en Google Cloud Console, habilitar la <strong>Gmail API</strong> y generar tus credenciales OAuth2 (Client ID, Client Secret y Refresh Token con scope <code>gmail.send</code>).
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-base-200/60 border border-base-300 space-y-1">
+                <span className="font-bold text-base-content flex items-center gap-1">
+                  2. Brevo API (Alternativa Gratuita)
+                </span>
+                <p className="text-[11px]">
+                  Si aún no has tramitado tu Refresh Token de Google, crea una cuenta gratuita en <strong>brevo.com</strong> (300 correos/día gratis), valida tu remitente y pega tu API Key (<code>xkeysib-...</code>).
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

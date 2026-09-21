@@ -20,6 +20,7 @@ adminRouter.get('/public-settings', async (_req: Request, res: Response) => {
       theme_palette: settings.theme_palette,
       allow_signups: settings.allow_signups,
       allow_google_oauth: settings.allow_google_oauth,
+      ui_feature_permissions: settings.ui_feature_permissions || {},
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)

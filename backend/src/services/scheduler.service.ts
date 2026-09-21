@@ -59,23 +59,27 @@ class ReminderScheduler {
         )
       }
 
-      // 2. Joya 4: Daily Academic Digest Automático a las 7:00 AM (Zona America/Guatemala UTC-6)
+      // 2. Despacho dinámico de Daily y Weekly Digest según horario de cada usuario
       const now = new Date()
-      const localDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guatemala' }).format(now)
       const localHour = parseInt(
         new Intl.DateTimeFormat('en-US', { timeZone: 'America/Guatemala', hour: 'numeric', hour12: false }).format(now),
         10
       )
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const currentDay = dayNames[now.getDay()]
 
-      if (localHour >= 7 && localHour < 11 && this.lastDigestDate !== localDateStr) {
-        this.lastDigestDate = localDateStr
-        console.log(`🌅 [ReminderScheduler] Iniciando evaluación del Daily Academic Digest para la fecha ${localDateStr}...`)
-        const digestStats = await notificationDispatcher.dispatchDailyDigests()
-        if (digestStats.sent > 0 || digestStats.failed > 0) {
-          console.log(
-            `☀️ [ReminderScheduler] Daily Digest completado: ${digestStats.sent} enviado(s), ${digestStats.failed} fallido(s) de ${digestStats.processed} evaluado(s).`
-          )
-        }
+      const digestStats = await notificationDispatcher.dispatchDailyDigests({ currentHour: localHour })
+      if (digestStats.sent > 0 || digestStats.failed > 0) {
+        console.log(
+          `☀️ [ReminderScheduler] Daily Digest (hora ${localHour}:00): ${digestStats.sent} enviado(s), ${digestStats.failed} fallido(s).`
+        )
+      }
+
+      const weeklyStats = await notificationDispatcher.dispatchWeeklyDigests({ currentHour: localHour, currentDay })
+      if (weeklyStats.sent > 0 || weeklyStats.failed > 0) {
+        console.log(
+          `📅 [ReminderScheduler] Weekly Digest (${currentDay} ${localHour}:00): ${weeklyStats.sent} enviado(s), ${weeklyStats.failed} fallido(s).`
+        )
       }
     } catch (err) {
       console.error('❌ [ReminderScheduler] Error durante el ciclo de recordatorios/digest:', err)

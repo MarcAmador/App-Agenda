@@ -53,7 +53,10 @@ export function NotificationSettings() {
 
   // Toggles de control y frecuencia de notificaciones
   const [dailyDigestEnabled, setDailyDigestEnabled] = useState(true)
+  const [dailyDigestTime, setDailyDigestTime] = useState('07:00')
   const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(true)
+  const [weeklyDigestDay, setWeeklyDigestDay] = useState('monday')
+  const [weeklyDigestTime, setWeeklyDigestTime] = useState('08:00')
   const [loginAlertsEnabled, setLoginAlertsEnabled] = useState(true)
   const [taskRemindersEnabled, setTaskRemindersEnabled] = useState(true)
   const [dndEnabled, setDndEnabled] = useState(false)
@@ -78,7 +81,10 @@ export function NotificationSettings() {
       setTelegramChatId(prefs.telegram_chat_id ?? '')
       setLeadTimes(decodeLeadTimes(prefs.reminder_lead_time_minutes))
       setDailyDigestEnabled(prefs.daily_digest_enabled !== false)
+      setDailyDigestTime(prefs.daily_digest_time || '07:00')
       setWeeklyDigestEnabled(prefs.weekly_digest_enabled !== false)
+      setWeeklyDigestDay(prefs.weekly_digest_day || 'monday')
+      setWeeklyDigestTime(prefs.weekly_digest_time || '08:00')
       setLoginAlertsEnabled(prefs.login_alerts_enabled !== false)
       setTaskRemindersEnabled(prefs.task_reminders_enabled !== false)
       setDndEnabled(Boolean(prefs.dnd_enabled))
@@ -102,7 +108,10 @@ export function NotificationSettings() {
       telegram_chat_id: telegramChatId.trim() ? telegramChatId.trim() : null,
       reminder_lead_time_minutes: encodeLeadTimes(leadTimes),
       daily_digest_enabled: dailyDigestEnabled,
+      daily_digest_time: dailyDigestTime,
       weekly_digest_enabled: weeklyDigestEnabled,
+      weekly_digest_day: weeklyDigestDay,
+      weekly_digest_time: weeklyDigestTime,
       login_alerts_enabled: loginAlertsEnabled,
       task_reminders_enabled: taskRemindersEnabled,
       dnd_enabled: dndEnabled,
@@ -450,54 +459,113 @@ export function NotificationSettings() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Toggle 1: Resumen Diario 7:00 AM */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-base-200/40 border border-base-200 gap-3">
-            <div className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
-                <Sun className="w-4 h-4" />
+          {/* Toggle 1: Resumen Diario Personalizable */}
+          <div className="p-3.5 rounded-xl bg-base-200/40 border border-base-200 flex flex-col justify-between gap-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+                  <Sun className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
+                    Resumen Matutino Diario
+                    <span className="badge badge-warning badge-xs py-0.5 px-1.5 text-[9px] font-semibold font-mono">
+                      {dailyDigestTime}
+                    </span>
+                  </span>
+                  <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
+                    Reporte diario con tus actividades del día y tareas urgentes del Cuadrante 1.
+                  </p>
+                </div>
               </div>
-              <div>
-                <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
-                  Resumen Matutino Diario
-                  <span className="badge badge-warning badge-xs py-0.5 px-1.5 text-[9px] font-semibold">07:00 AM</span>
-                </span>
-                <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
-                  Reporte diario con tus actividades del día y tareas urgentes del Cuadrante 1.
-                </p>
-              </div>
+              <input
+                type="checkbox"
+                checked={dailyDigestEnabled}
+                onChange={(e) => handleTogglePreference('daily_digest_enabled', e.target.checked)}
+                className="toggle toggle-primary toggle-sm shrink-0"
+                title="Activar/Desactivar Resumen Diario"
+              />
             </div>
-            <input
-              type="checkbox"
-              checked={dailyDigestEnabled}
-              onChange={(e) => handleTogglePreference('daily_digest_enabled', e.target.checked)}
-              className="toggle toggle-primary toggle-sm shrink-0"
-              title="Activar/Desactivar Resumen Diario"
-            />
+
+            {dailyDigestEnabled && (
+              <div className="mt-1 pt-2 border-t border-base-200 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-semibold text-base-content/70">Hora de recepción:</span>
+                <input
+                  type="time"
+                  value={dailyDigestTime}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setDailyDigestTime(val)
+                    updatePrefs.mutate({ daily_digest_time: val })
+                  }}
+                  className="input input-xs input-bordered font-mono font-bold w-24 text-center rounded-lg"
+                />
+              </div>
+            )}
           </div>
 
-          {/* Toggle 2: Planificación Semanal */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-base-200/40 border border-base-200 gap-3">
-            <div className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                <Calendar className="w-4 h-4" />
+          {/* Toggle 2: Planificación Semanal Personalizable */}
+          <div className="p-3.5 rounded-xl bg-base-200/40 border border-base-200 flex flex-col justify-between gap-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
+                    Planificación Semanal
+                    <span className="badge badge-primary badge-xs py-0.5 px-1.5 text-[9px] font-semibold capitalize font-mono">
+                      {weeklyDigestDay.slice(0, 3)} {weeklyDigestTime}
+                    </span>
+                  </span>
+                  <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
+                    Panorama consolidado de entregas y compromisos al inicio de cada semana.
+                  </p>
+                </div>
               </div>
-              <div>
-                <span className="font-bold text-xs text-base-content flex items-center gap-1.5">
-                  Planificación Semanal
-                  <span className="badge badge-primary badge-xs py-0.5 px-1.5 text-[9px] font-semibold">Lunes 8 AM</span>
-                </span>
-                <p className="text-[11px] text-base-content/60 leading-snug mt-0.5">
-                  Panorama consolidado de entregas y compromisos al inicio de cada semana.
-                </p>
-              </div>
+              <input
+                type="checkbox"
+                checked={weeklyDigestEnabled}
+                onChange={(e) => handleTogglePreference('weekly_digest_enabled', e.target.checked)}
+                className="toggle toggle-primary toggle-sm shrink-0"
+                title="Activar/Desactivar Planificación Semanal"
+              />
             </div>
-            <input
-              type="checkbox"
-              checked={weeklyDigestEnabled}
-              onChange={(e) => handleTogglePreference('weekly_digest_enabled', e.target.checked)}
-              className="toggle toggle-primary toggle-sm shrink-0"
-              title="Activar/Desactivar Planificación Semanal"
-            />
+
+            {weeklyDigestEnabled && (
+              <div className="mt-1 pt-2 border-t border-base-200 flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold text-base-content/70">Día y Hora de recepción:</span>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={weeklyDigestDay}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setWeeklyDigestDay(val)
+                      updatePrefs.mutate({ weekly_digest_day: val })
+                    }}
+                    className="select select-xs select-bordered text-[11px] font-semibold rounded-lg capitalize"
+                  >
+                    <option value="monday">Lunes</option>
+                    <option value="tuesday">Martes</option>
+                    <option value="wednesday">Miércoles</option>
+                    <option value="thursday">Jueves</option>
+                    <option value="friday">Viernes</option>
+                    <option value="saturday">Sábado</option>
+                    <option value="sunday">Domingo</option>
+                  </select>
+                  <input
+                    type="time"
+                    value={weeklyDigestTime}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setWeeklyDigestTime(val)
+                      updatePrefs.mutate({ weekly_digest_time: val })
+                    }}
+                    className="input input-xs input-bordered font-mono font-bold w-24 text-center rounded-lg"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Toggle 3: Recordatorios de Tareas Próximas */}

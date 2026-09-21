@@ -40,7 +40,9 @@ export function useTasks(filters: TaskFilters = {}) {
   return useQuery({
     queryKey: taskKeys.list(filters),
     queryFn: () => getTasks(filters),
-    staleTime: 1000 * 15, // 15 segundos para frescura y alta reactividad
+    staleTime: 1000 * 60 * 2, // 2 minutos de frescura en caché
+    gcTime: 1000 * 60 * 10,
+    placeholderData: (previousData) => previousData,
   })
 }
 
@@ -50,7 +52,6 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: (input: CreateTaskInput) => createTask(input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
       toast.success('Tarea creada correctamente')
     },
     onError: () => toast.error('Error al crear la tarea'),
@@ -80,14 +81,12 @@ export function useUpdateTask() {
       )
     },
     onSuccess: (_data, { input }) => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
-      // Solo mostrar toast genérico si no es una actualización rápida de subtareas (el modal ya muestra feedback específico)
+      // Solo mostrar toast genérico si no es una actualización rápida de subtareas
       if (!input.checklist) {
         toast.success('Tarea actualizada')
       }
     },
     onError: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
       toast.error('Error al actualizar la tarea')
     },
     onSettled: () => {
@@ -96,16 +95,14 @@ export function useUpdateTask() {
   })
 }
 
-/** Hook específico para cambio rápido de estado desde el DataTable / Dashboard */
+/** Hook específico para cambio rápido de estado desde el DataTable / Kanban / Dashboard */
 export function useUpdateTaskStatus() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: Task['status'] }) =>
       updateTaskStatus(id, status),
     onMutate: async ({ id, status }) => {
-      // Cancelar queries en vuelo para evitar sobreescritura
       await qc.cancelQueries({ queryKey: taskKeys.all })
-      // Actualización optimista en el cache
       qc.setQueriesData(
         { queryKey: taskKeys.lists() },
         (old: { data: Task[]; count: number } | undefined) => {
@@ -118,11 +115,9 @@ export function useUpdateTaskStatus() {
       )
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
       toast.success('Estado actualizado')
     },
     onError: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
       toast.error('Error al cambiar el estado')
     },
     onSettled: () => {
@@ -150,11 +145,7 @@ export function useUpdateTaskPriority() {
         }
       )
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
-    },
     onError: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
       toast.error('Error al cambiar la prioridad')
     },
     onSettled: () => {
@@ -169,7 +160,6 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: (id: string) => deleteTask(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
       toast.success('Tarea eliminada')
     },
     onError: () => toast.error('Error al eliminar la tarea'),

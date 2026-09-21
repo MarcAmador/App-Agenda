@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminService, type AdminOverview } from '@/services/admin.service'
 import {
@@ -16,34 +17,41 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-export default function AdminOverviewPage() {
-  const [data, setData] = useState<AdminOverview | null>(null)
-  const [loading, setLoading] = useState(true)
+const OVERVIEW_QUERY_KEY = ['admin', 'overview']
 
-  const loadData = async () => {
+export default function AdminOverviewPage() {
+  const qc = useQueryClient()
+
+  const { data, isLoading, isError, error } = useQuery<AdminOverview>({
+    queryKey: OVERVIEW_QUERY_KEY,
+    queryFn: () => adminService.getOverview(),
+    staleTime: 1000 * 60 * 2,  // 2 minutos de caché para el overview
+    retry: 1,
+  })
+
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
     try {
-      setLoading(true)
-      const res = await adminService.getOverview()
-      setData(res)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      toast.error(`Error cargando métricas: ${msg}`)
+      await qc.invalidateQueries({ queryKey: OVERVIEW_QUERY_KEY })
     } finally {
-      setLoading(false)
+      setTimeout(() => setIsRefreshing(false), 800)
     }
   }
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <span className="loading loading-spinner loading-lg text-primary"></span>
         <p className="mt-3 text-sm text-base-content/60 font-medium">Cargando métricas ejecutivas...</p>
       </div>
     )
+  }
+
+  if (isError) {
+    const msg = error instanceof Error ? error.message : String(error)
+    toast.error(`Error cargando métricas: ${msg}`, { id: 'admin-overview-error' })
   }
 
   const stats = data?.stats || {
@@ -71,8 +79,12 @@ export default function AdminOverviewPage() {
           </p>
         </div>
 
-        <button onClick={loadData} className="btn btn-sm btn-outline gap-2 self-start sm:self-auto">
-          <RefreshCw className="w-4 h-4" />
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="btn btn-sm btn-outline gap-2 self-start sm:self-auto"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span>Actualizar Datos</span>
         </button>
       </div>
@@ -80,272 +92,194 @@ export default function AdminOverviewPage() {
       {/* ─── Alertas del Sistema ──────────────────────────────────────────────── */}
       {data?.alerts && data.alerts.length > 0 && (
         <div className="space-y-2">
-          {data.alerts.map((alt) => (
+          {data.alerts.map((alert) => (
             <div
-              key={alt.id}
-              className={`alert shadow-sm border ${
-                alt.type === 'error'
+              key={alert.id}
+              className={`alert text-sm font-medium shadow-sm border rounded-2xl py-3 ${
+                alert.type === 'error'
                   ? 'alert-error border-error/30'
-                  : alt.type === 'warning'
+                  : alert.type === 'warning'
                   ? 'alert-warning border-warning/30'
                   : 'alert-info border-info/30'
               }`}
             >
-              {alt.type === 'error' ? (
-                <AlertTriangle className="w-5 h-5" />
-              ) : alt.type === 'warning' ? (
-                <AlertTriangle className="w-5 h-5" />
-              ) : (
-                <CheckCircle2 className="w-5 h-5" />
-              )}
-              <div className="flex-1">
-                <h3 className="font-bold text-sm">{alt.title}</h3>
-                <div className="text-xs opacity-90">{alt.message}</div>
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <div>
+                <div className="font-bold">{alert.title}</div>
+                <div className="text-xs opacity-80">{alert.message}</div>
               </div>
-              <span className="text-[11px] opacity-75 font-mono">
-                {new Date(alt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
             </div>
           ))}
         </div>
       )}
 
-      {/* ─── Tarjetas de Estadísticas (DaisyUI Stats) ─────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Stat 1: Total Usuarios */}
-        <div className="card bg-base-100 shadow-sm border border-base-300">
-          <div className="card-body p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
-                Usuarios Registrados
+      {/* ─── Tarjetas de Métricas KPI ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Usuarios Totales */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 hover:border-primary/30 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-base-content/60 uppercase tracking-wider">Usuarios</span>
+            <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className="text-3xl font-extrabold text-base-content">{stats.totalUsers}</span>
+            {stats.usersGrowthWeekly > 0 && (
+              <span className="ml-2 text-xs text-success font-semibold">
+                +{stats.usersGrowthWeekly} esta semana
               </span>
-              <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
-                <Users className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1">{stats.totalUsers}</div>
-            <div className="flex items-center justify-between text-xs text-base-content/70 mt-2">
-              <span>Google: <strong>{data?.userDistribution.google || 0}</strong> • Email: <strong>{data?.userDistribution.email || 0}</strong></span>
-              <Link to="/admin/usuarios" className="text-primary font-semibold hover:underline flex items-center gap-0.5">
-                Gestionar <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat 2: Tareas en la Plataforma */}
-        <div className="card bg-base-100 shadow-sm border border-base-300">
-          <div className="card-body p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
-                Actividades Académicas
-              </span>
-              <div className="p-2.5 rounded-xl bg-secondary/10 text-secondary">
-                <Activity className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1">{stats.totalTasks}</div>
-            <div className="flex items-center justify-between text-xs text-base-content/70 mt-2">
-              <span>{stats.activeTasks} tareas activas en progreso</span>
-              <span className="badge badge-sm badge-secondary font-semibold">SaaS Global</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat 3: Correos Despachados */}
-        <div className="card bg-base-100 shadow-sm border border-base-300">
-          <div className="card-body p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
-                Correos Enviados Hoy
-              </span>
-              <div className="p-2.5 rounded-xl bg-success/10 text-success">
-                <Mail className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1">{stats.emailsSentToday}</div>
-            <div className="flex items-center justify-between text-xs text-base-content/70 mt-2">
-              <span className="text-success font-semibold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 100% Entregados
-              </span>
-              <Link to="/admin/emails" className="text-primary font-semibold hover:underline flex items-center gap-0.5">
-                Ver Logs <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat 4: Salud del Sistema & Fallos */}
-        <div className="card bg-base-100 shadow-sm border border-base-300">
-          <div className="card-body p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-base-content/60">
-                Tasa de Error Global
-              </span>
-              <div
-                className={`p-2.5 rounded-xl ${
-                  stats.errorRate > 5 ? 'bg-error/10 text-error' : 'bg-success/10 text-success'
-                }`}
-              >
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1">{stats.errorRate}%</div>
-            <div className="flex items-center justify-between text-xs text-base-content/70 mt-2">
-              <span className={stats.errorRate > 5 ? 'text-error font-bold' : 'text-success font-semibold'}>
-                {stats.errorRate > 5 ? '⚠️ Alerta de Fallos' : '✓ Rendimiento Óptimo'}
-              </span>
-              <Link to="/admin/alertas" className="text-primary font-semibold hover:underline flex items-center gap-0.5">
-                Alertas <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Accesos Rápidos de Administración ──────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link
-          to="/admin/plantillas"
-          className="card bg-base-100 hover:bg-base-200/60 border border-base-300 transition-all p-5 shadow-sm group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 rounded-2xl bg-primary text-primary-content shadow-md shadow-primary/30 group-hover:scale-105 transition-transform">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Editor de Plantillas</h3>
-              <p className="text-xs text-base-content/60">9 tipos con live preview</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          to="/admin/smtp"
-          className="card bg-base-100 hover:bg-base-200/60 border border-base-300 transition-all p-5 shadow-sm group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 rounded-2xl bg-secondary text-secondary-content shadow-md shadow-secondary/30 group-hover:scale-105 transition-transform">
-              <Server className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Servidor SMTP</h3>
-              <p className="text-xs text-base-content/60">Configurar emisor dedicado</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          to="/admin/usuarios"
-          className="card bg-base-100 hover:bg-base-200/60 border border-base-300 transition-all p-5 shadow-sm group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 rounded-2xl bg-accent text-accent-content shadow-md shadow-accent/30 group-hover:scale-105 transition-transform">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Roles y Permisos</h3>
-              <p className="text-xs text-base-content/60">SuperAdmin, Admin, Support</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          to="/admin/auditoria"
-          className="card bg-base-100 hover:bg-base-200/60 border border-base-300 transition-all p-5 shadow-sm group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 rounded-2xl bg-neutral text-neutral-content shadow-md shadow-neutral/30 group-hover:scale-105 transition-transform">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Registro de Auditoría</h3>
-              <p className="text-xs text-base-content/60">Trazabilidad de acciones</p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* ─── Fila Inferior: Actividad Reciente & Resumen Operativo ─────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Actividad Reciente (Timeline DaisyUI) */}
-        <div className="card bg-base-100 shadow-sm border border-base-300 lg:col-span-2">
-          <div className="card-body p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="font-extrabold text-base">Actividad Reciente del Sistema</h2>
-                <p className="text-xs text-base-content/60">Eventos de seguridad y despachos registrados en tiempo real</p>
-              </div>
-              <Link to="/admin/auditoria" className="btn btn-xs btn-ghost text-primary font-semibold">
-                Ver todos →
-              </Link>
-            </div>
-
-            {data?.recentActivity && data.recentActivity.length > 0 ? (
-              <ul className="timeline timeline-vertical timeline-compact">
-                {data.recentActivity.map((log, idx) => (
-                  <li key={log.id as string || idx}>
-                    {idx > 0 && <hr className="bg-base-300" />}
-                    <div className="timeline-middle">
-                      <span className="flex h-3 w-3 rounded-full bg-primary ring-4 ring-primary/20"></span>
-                    </div>
-                    <div className="timeline-end timeline-box bg-base-200/60 border-base-300 my-1 py-2 px-3 text-xs w-full">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-bold text-primary font-mono text-[11px]">{log.action as string}</span>
-                        <span className="text-[10px] text-base-content/50">
-                          {new Date(log.created_at as string).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="text-base-content/80 mt-1">
-                        Ejecutado por <strong>{log.actor_name as string || log.actor_email as string}</strong> ({log.resource_type as string})
-                      </p>
-                    </div>
-                    <hr className="bg-base-300" />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-base-content/50 py-4 text-center">No hay registros de actividad recientes.</p>
             )}
           </div>
+          <div className="mt-3 flex items-center gap-1 text-xs text-primary font-semibold">
+            <Link to="/admin/usuarios" className="hover:underline flex items-center gap-1">
+              Gestionar <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
         </div>
 
-        {/* Resumen del Emisor SMTP & Entorno */}
-        <div className="card bg-base-100 shadow-sm border border-base-300">
-          <div className="card-body p-6 flex flex-col justify-between">
-            <div>
-              <h2 className="font-extrabold text-base mb-1">Estado del Emisor de Correo</h2>
-              <p className="text-xs text-base-content/60 mb-4">Parámetros actuales del motor de recordatorios</p>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-base-200">
-                  <span className="text-base-content/70">Proveedor:</span>
-                  <span className="font-bold font-mono">smtp.gmail.com:587</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-base-200">
-                  <span className="text-base-content/70">Familia IP:</span>
-                  <span className="badge badge-sm badge-success font-mono font-bold">IPv4 Forzado</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-base-200">
-                  <span className="text-base-content/70">Seguridad:</span>
-                  <span className="font-semibold">STARTTLS / Auth 2FA</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-base-200">
-                  <span className="text-base-content/70">Límite Diario:</span>
-                  <span className="font-semibold">500 correos/día</span>
-                </div>
-              </div>
+        {/* Tareas Activas */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 hover:border-secondary/30 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-base-content/60 uppercase tracking-wider">Tareas</span>
+            <div className="w-9 h-9 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
             </div>
+          </div>
+          <div className="mt-3">
+            <span className="text-3xl font-extrabold text-base-content">{stats.activeTasks}</span>
+            <span className="ml-2 text-xs text-base-content/50">de {stats.totalTasks} totales</span>
+          </div>
+          <div className="mt-3 text-xs text-base-content/50 font-medium">Activas en el sistema</div>
+        </div>
 
-            <div className="mt-6 pt-4 border-t border-base-300">
-              <Link to="/admin/smtp" className="btn btn-primary btn-sm w-full gap-2 font-semibold">
-                <Server className="w-4 h-4" />
-                <span>Gestionar Cuenta Emisora</span>
-              </Link>
+        {/* Emails Enviados Hoy */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 hover:border-success/30 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-base-content/60 uppercase tracking-wider">Emails Hoy</span>
+            <div className="w-9 h-9 rounded-xl bg-success/10 text-success flex items-center justify-center">
+              <Mail className="w-4 h-4" />
             </div>
+          </div>
+          <div className="mt-3">
+            <span className="text-3xl font-extrabold text-success">{stats.emailsSentToday}</span>
+            {stats.emailsFailedToday > 0 && (
+              <span className="ml-2 text-xs text-error font-semibold">
+                {stats.emailsFailedToday} fallidos
+              </span>
+            )}
+          </div>
+          <div className="mt-3 flex items-center gap-1 text-xs text-success font-semibold">
+            <Link to="/admin/emails" className="hover:underline flex items-center gap-1">
+              Ver logs <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Estado del Sistema */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-5 hover:border-info/30 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-base-content/60 uppercase tracking-wider">Sistema</span>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+              stats.systemHealth === 'healthy' ? 'bg-success/10 text-success' :
+              stats.systemHealth === 'warning' ? 'bg-warning/10 text-warning' : 'bg-error/10 text-error'
+            }`}>
+              <Server className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className={`text-lg font-extrabold capitalize ${
+              stats.systemHealth === 'healthy' ? 'text-success' :
+              stats.systemHealth === 'warning' ? 'text-warning' : 'text-error'
+            }`}>
+              {stats.systemHealth === 'healthy' ? '✓ Operativo' :
+               stats.systemHealth === 'warning' ? '⚠ Advertencia' : '✗ Crítico'}
+            </span>
+          </div>
+          <div className="mt-3 text-xs text-base-content/50 font-medium">
+            Tasa de error: {stats.errorRate.toFixed(1)}%
           </div>
         </div>
       </div>
+
+      {/* ─── Accesos Rápidos a Módulos ────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-base font-bold text-base-content mb-3 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-primary" />
+          Accesos Rápidos
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {[
+            { to: '/admin/usuarios', icon: Users, label: 'Usuarios', color: 'text-primary bg-primary/10' },
+            { to: '/admin/plantillas', icon: FileText, label: 'Plantillas', color: 'text-secondary bg-secondary/10' },
+            { to: '/admin/emails', icon: Mail, label: 'Emails', color: 'text-success bg-success/10' },
+            { to: '/admin/smtp', icon: Server, label: 'SMTP', color: 'text-info bg-info/10' },
+            { to: '/admin/auditoria', icon: ShieldCheck, label: 'Auditoría', color: 'text-warning bg-warning/10' },
+          ].map(({ to, icon: Icon, label, color }) => (
+            <Link
+              key={to}
+              to={to}
+              className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl p-4 hover:border-primary/30 hover:shadow-md transition-all flex flex-col items-center gap-2 text-center group"
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-semibold text-base-content group-hover:text-primary transition-colors">
+                {label}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── Actividad Reciente ───────────────────────────────────────────────── */}
+      {data?.recentActivity && data.recentActivity.length > 0 && (
+        <div>
+          <h2 className="text-base font-bold text-base-content mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-secondary" />
+            Actividad Reciente
+          </h2>
+          <div className="card bg-base-100 border border-base-200 shadow-sm rounded-2xl overflow-hidden">
+            <table className="table table-sm">
+              <thead>
+                <tr className="text-xs text-base-content/60 font-bold uppercase tracking-wider">
+                  <th>Acción</th>
+                  <th>Actor</th>
+                  <th>Recurso</th>
+                  <th>Estado</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recentActivity.slice(0, 8).map((item) => (
+                  <tr key={item.id} className="hover:bg-base-200/50 transition-colors text-xs">
+                    <td>
+                      <span className="badge badge-ghost badge-sm font-mono">{item.action}</span>
+                    </td>
+                    <td>
+                      <div className="font-medium truncate max-w-[140px]">{item.actor_name || item.actor_email}</div>
+                    </td>
+                    <td className="text-base-content/60 capitalize">{item.resource_type}</td>
+                    <td>
+                      <span className={`badge badge-sm font-semibold ${
+                        item.status === 'success' ? 'badge-success' :
+                        item.status === 'error' ? 'badge-error' : 'badge-ghost'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="text-base-content/50">
+                      {new Date(item.created_at).toLocaleString('es-GT', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

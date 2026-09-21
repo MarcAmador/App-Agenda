@@ -77,6 +77,11 @@ export interface AppSettings {
   timezone: string
   default_language: string
   is_gmail_api_configured?: boolean
+  email_provider?: 'gmail_api' | 'gmail_smtp' | 'brevo' | 'resend' | 'smtp'
+  gmail_client_id?: string
+  gmail_client_secret?: string
+  gmail_refresh_token?: string
+  ui_feature_permissions?: Record<string, boolean>
 }
 
 export interface AdminOverview {
@@ -349,6 +354,10 @@ export const adminService = {
     secure: boolean
     user: string
     pass: string
+    email_provider?: 'gmail_api' | 'gmail_smtp' | 'brevo' | 'resend' | 'smtp'
+    gmail_client_id?: string
+    gmail_client_secret?: string
+    gmail_refresh_token?: string
   }): Promise<{ success: boolean; latencyMs: number; message: string; details: Record<string, unknown> }> {
     const headers = await getAuthHeaders()
     const res = await fetch(`${getBackendUrl()}/api/v1/admin/settings/test-smtp`, {

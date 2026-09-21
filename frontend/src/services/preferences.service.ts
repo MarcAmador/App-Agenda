@@ -58,17 +58,34 @@ export async function updateUserPreferences(
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Usuario no autenticado')
 
-  const payload = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload: any = {
     ...input,
     updated_at: new Date().toISOString(),
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('user_preferences') as any)
+  let { data, error } = await (supabase.from('user_preferences') as any)
     .update(payload)
     .eq('user_id', user.id)
     .select()
     .single()
+
+  // Resiliencia: Si las nuevas columnas de horario aún no se aplican en Supabase SQL Editor, reintentar con campos base
+  if (error && (error.message?.includes('daily_digest_time') || error.message?.includes('weekly_digest') || error.code === '42703')) {
+    console.warn('[updateUserPreferences] Columnas de horario aún no creadas en Supabase, guardando campos estándar...')
+    delete payload.daily_digest_time
+    delete payload.weekly_digest_day
+    delete payload.weekly_digest_time
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retry = await (supabase.from('user_preferences') as any)
+      .update(payload)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) throw error
   return data as UserPreferences

@@ -8,7 +8,49 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      react: path.resolve(__dirname, '../node_modules/react'),
+      'react-dom': path.resolve(__dirname, '../node_modules/react-dom'),
     },
+    dedupe: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'react-router-dom',
+      '@tanstack/react-query',
+    ],
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'react-hot-toast',
+      'react-hook-form',
+      'lucide-react',
+      '@supabase/supabase-js',
+      'primereact/api',
+      'primereact/dialog',
+      'primereact/button',
+      'primereact/inputtext',
+      'primereact/dropdown',
+      'primereact/datatable',
+      'primereact/column',
+      'primereact/tooltip',
+      'primereact/calendar',
+      'primereact/multiselect',
+      'primereact/confirmdialog',
+      'primereact/chips',
+      'driver.js',
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
+      '@dnd-kit/utilities',
+    ],
+    holdUntilCrawlEnd: true,
   },
   server: {
     port: 5180,
@@ -27,7 +69,13 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react-dom') || id.includes('react-router-dom') || id.includes('/react/')) {
+            if (
+              id.includes('react-dom') ||
+              id.includes('react-router-dom') ||
+              /[\\/]react[\\/]/.test(id) ||
+              id.includes('react/jsx-runtime') ||
+              id.includes('react/jsx-dev-runtime')
+            ) {
               return 'vendor-react'
             }
             if (id.includes('primereact')) {
